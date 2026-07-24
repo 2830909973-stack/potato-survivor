@@ -7,14 +7,13 @@ export class AudioManager {
   private static bgmGain: GainNode | null = null;
   private static currentBgmVolume = 0.5;
 
-  private static ensure(force = false) {
+  private static ensure() {
     if (!this.ctx) {
       this.ctx = new AudioContext();
       this.sfxGain = this.ctx.createGain();
       this.sfxGain.gain.value = Settings.sfxVolume * 0.3;
       this.sfxGain.connect(this.ctx.destination);
     }
-    if (force && this.ctx.state === "suspended") this.ctx.resume();
     if (this.ctx.state === "suspended") this.ctx.resume();
   }
 

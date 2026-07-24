@@ -5,7 +5,7 @@ export const PICKUP_RANGE = 28;
 export const MELEE_RANGE = 60;
 export const MAX_WEAPONS = 2;
 
-export type EnemyType = "normal" | "fast" | "tank" | "ranged" | "charger" | "exploder";
+export type EnemyType = "normal" | "fast" | "tank" | "ranged" | "charger" | "exploder" | "healer" | "invisible";
 
 export interface PowerConfig {
   id: string;
@@ -71,12 +71,15 @@ export interface Weapon {
   weaponType: "ranged" | "melee";
   splashRadius?: number;
   penetrate?: number;
+  level: number;
   lastFired: number;
   ammo: number;
+  reloading: boolean;
+  reloadTimer: number;
   mods: Mod[];
 }
 
-export type WeaponConfig = Omit<Weapon, "lastFired" | "ammo" | "mods">;
+export type WeaponConfig = Omit<Weapon, "lastFired" | "ammo" | "reloading" | "reloadTimer" | "level" | "mods">;
 
 export interface Character {
   id: string;

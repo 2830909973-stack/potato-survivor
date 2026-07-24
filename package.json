@@ -1,7 +1,7 @@
 {
   "name": "potato-survivor",
   "version": "1.0.0",
-  "description": "",
+  "description": "2D top-down zombie survival game built with Phaser 3 and TypeScript",
   "main": "index.js",
   "scripts": {
     "dev": "vite",

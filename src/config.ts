@@ -20,6 +20,8 @@ export const WEAPON_CONFIGS: WeaponConfig[] = [
   { id: "fireaxe", name: "消防斧", damage: 22, fireRate: 900, bulletCount: 0, spread: 0, bulletSpeed: 0, range: 65, ammoMax: 0, reloadTime: 0, weaponType: "melee", cost: 15 },
   { id: "crowbar", name: "撬棍", damage: 16, fireRate: 600, bulletCount: 0, spread: 0, bulletSpeed: 0, range: 60, ammoMax: 0, reloadTime: 0, weaponType: "melee", cost: 12 },
   { id: "machete", name: "砍刀", damage: 12, fireRate: 400, bulletCount: 0, spread: 0, bulletSpeed: 0, range: 55, ammoMax: 0, reloadTime: 0, weaponType: "melee", cost: 10 },
+  { id: "laser", name: "激光枪", damage: 3, fireRate: 50, bulletCount: 1, spread: 0, bulletSpeed: 600, range: 350, ammoMax: 60, reloadTime: 2000, penetrate: 3, weaponType: "ranged", cost: 35 },
+  { id: "freeze", name: "冰冻枪", damage: 8, fireRate: 400, bulletCount: 1, spread: 4, bulletSpeed: 350, range: 250, ammoMax: 12, reloadTime: 1800, weaponType: "ranged", cost: 30 },
 ];
 
 export const ITEMS: ShopItem[] = [
@@ -29,6 +31,8 @@ export const ITEMS: ShopItem[] = [
   { id: "shield", name: "铁盾", desc: "护甲 +2", cost: 18, type: "item", apply: (s) => { s.armor += 2; } },
   { id: "clover", name: "幸运草", desc: "经验获取 +15%", cost: 14, type: "item", apply: (s) => { s.xpMult = 1.15; } },
   { id: "foldingStock", name: "折叠枪托", desc: "移速 +15", cost: 10, type: "item", apply: (s) => { s.speed += 15; } },
+  { id: "energyCell", name: "能量电池", desc: "激光枪弹容量 +50%", cost: 16, type: "item", apply: (s, w) => { w.forEach(we => { if (we.id === "laser" || we.id === "evolved_laser") we.ammoMax = Math.round(we.ammoMax * 1.5); }); } },
+  { id: "coolant", name: "冷却液", desc: "冰冻枪射速 +20%", cost: 14, type: "item", apply: (s, w) => { w.forEach(we => { if (we.id === "freeze" || we.id === "evolved_freeze") we.fireRate = Math.round(we.fireRate * 0.8); }); } },
 ];
 
 export const CONSUMABLES: ShopItem[] = [
@@ -82,7 +86,7 @@ export const BASE_STATS: PlayerStats = {
 };
 
 export const XP_PER_KILL: Record<EnemyType, number> = {
-  normal: 5, fast: 3, tank: 10, ranged: 8, charger: 6, exploder: 12,
+  normal: 5, fast: 3, tank: 10, ranged: 8, charger: 6, exploder: 12, healer: 6, invisible: 4,
 };
 
 export const BODY_UPGRADES: BodyPartUpgrade[] = [
@@ -93,7 +97,7 @@ export const BODY_UPGRADES: BodyPartUpgrade[] = [
   { id: "hpSmall", part: "chest", name: "生命强化", desc: "HP +25", tier: 1, apply: (s) => { s.maxHp += 25; s.hp += 25; } },
   { id: "armorSmall", part: "chest", name: "铁壁", desc: "护甲 +1", tier: 1, apply: (s) => { s.armor += 1; } },
   { id: "hpLarge", part: "chest", name: "坚韧", desc: "HP +50", tier: 2, apply: (s) => { s.maxHp += 50; s.hp += 50; } },
-  { id: "hpRegen", part: "chest", name: "再生", desc: "每秒回复 1HP", tier: 3, apply: (s) => { s.hpRegen = true; } },
+  { id: "hpRegen", part: "chest", name: "再生", desc: "每秒回复 3HP", tier: 3, apply: (s) => { s.hpRegen = true; } },
   { id: "speedInc", part: "legs", name: "疾跑", desc: "移速 +10", tier: 1, apply: (s) => { s.speed += 10; } },
   { id: "pickupRange", part: "legs", name: "长臂", desc: "拾取范围 +15", tier: 1, apply: (s) => { s.pickupRangeBonus += 15; } },
   { id: "dodgeSmall", part: "legs", name: "灵巧", desc: "闪避 +3%", tier: 2, apply: (s) => { s.dodge += 0.03; } },
@@ -111,6 +115,8 @@ export const ENEMY_CONFIG = {
   ranged: { hp: 20, speed: 60, tint: 0x44ff44, scale: 0.8, dropMult: 2 },
   charger: { hp: 25, speed: 160, tint: 0xff6644, scale: 1, dropMult: 1 },
   exploder: { hp: 60, speed: 40, tint: 0xff8800, scale: 1.2, dropMult: 3 },
+  healer: { hp: 35, speed: 80, tint: 0x44ffaa, scale: 1, dropMult: 2 },
+  invisible: { hp: 20, speed: 120, tint: 0x888888, scale: 0.9, dropMult: 1 },
 };
 
 export const WAVE_CONFIGS: WaveConfig[] = [
@@ -126,11 +132,11 @@ export const WAVE_CONFIGS: WaveConfig[] = [
   { enemies: [{ type: "normal", count: 40 }, { type: "fast", count: 30 }, { type: "ranged", count: 25 }, { type: "tank", count: 22 }, { type: "charger", count: 12 }], speedMult: 1.4, hpMult: 1.4, eliteChance: 0.12 },
   { enemies: [{ type: "normal", count: 35 }, { type: "fast", count: 25 }, { type: "ranged", count: 20 }, { type: "tank", count: 18 }, { type: "charger", count: 10 }, { type: "exploder", count: 5 }], speedMult: 1.45, hpMult: 1.45, eliteChance: 0.12 },
   { enemies: [{ type: "fast", count: 35 }, { type: "ranged", count: 25 }, { type: "charger", count: 15 }, { type: "exploder", count: 8 }], speedMult: 1.5, hpMult: 1.5, eliteChance: 0.12 },
-  { enemies: [{ type: "normal", count: 40 }, { type: "fast", count: 30 }, { type: "ranged", count: 25 }, { type: "charger", count: 15 }, { type: "exploder", count: 10 }], speedMult: 1.55, hpMult: 1.55, eliteChance: 0.15 },
-  { enemies: [{ type: "normal", count: 35 }, { type: "tank", count: 20 }, { type: "charger", count: 18 }, { type: "exploder", count: 12 }], speedMult: 1.6, hpMult: 1.6, eliteChance: 0.15 },
-  { enemies: [{ type: "fast", count: 40 }, { type: "ranged", count: 30 }, { type: "charger", count: 20 }, { type: "exploder", count: 15 }], speedMult: 1.65, hpMult: 1.65, eliteChance: 0.15 },
-  { enemies: [{ type: "normal", count: 40 }, { type: "fast", count: 35 }, { type: "tank", count: 25 }, { type: "charger", count: 20 }, { type: "exploder", count: 15 }], speedMult: 1.7, hpMult: 1.7, eliteChance: 0.15 },
-  { enemies: [{ type: "fast", count: 40 }, { type: "ranged", count: 30 }, { type: "tank", count: 25 }, { type: "charger", count: 22 }, { type: "exploder", count: 18 }], speedMult: 1.75, hpMult: 1.75, eliteChance: 0.18 },
+  { enemies: [{ type: "normal", count: 30 }, { type: "fast", count: 25 }, { type: "ranged", count: 20 }, { type: "healer", count: 5 }, { type: "exploder", count: 8 }], speedMult: 1.55, hpMult: 1.55, eliteChance: 0.12 },
+  { enemies: [{ type: "normal", count: 35 }, { type: "tank", count: 20 }, { type: "charger", count: 18 }, { type: "exploder", count: 12 }, { type: "invisible", count: 8 }], speedMult: 1.6, hpMult: 1.6, eliteChance: 0.15 },
+  { enemies: [{ type: "fast", count: 40 }, { type: "ranged", count: 30 }, { type: "charger", count: 20 }, { type: "exploder", count: 15 }, { type: "invisible", count: 10 }], speedMult: 1.65, hpMult: 1.65, eliteChance: 0.15 },
+  { enemies: [{ type: "normal", count: 40 }, { type: "fast", count: 35 }, { type: "tank", count: 25 }, { type: "charger", count: 20 }, { type: "exploder", count: 15 }, { type: "healer", count: 5 }], speedMult: 1.7, hpMult: 1.7, eliteChance: 0.15 },
+  { enemies: [{ type: "fast", count: 40 }, { type: "ranged", count: 30 }, { type: "tank", count: 25 }, { type: "charger", count: 22 }, { type: "exploder", count: 18 }, { type: "healer", count: 8 }], speedMult: 1.75, hpMult: 1.75, eliteChance: 0.18 },
   { enemies: [{ type: "normal", count: 45 }, { type: "fast", count: 35 }, { type: "charger", count: 25 }, { type: "exploder", count: 20 }, { type: "ranged", count: 25 }], speedMult: 1.8, hpMult: 1.8, eliteChance: 0.18 },
   { enemies: [{ type: "fast", count: 40 }, { type: "charger", count: 28 }, { type: "exploder", count: 22 }, { type: "tank", count: 25 }, { type: "ranged", count: 30 }], speedMult: 1.85, hpMult: 1.85, eliteChance: 0.2 },
   { enemies: [{ type: "normal", count: 50 }, { type: "fast", count: 40 }, { type: "charger", count: 30 }, { type: "exploder", count: 25 }, { type: "tank", count: 25 }], speedMult: 1.9, hpMult: 1.9, eliteChance: 0.2 },
@@ -152,15 +158,15 @@ export function calcRerollCost(level: number, rerollCount: number): number {
 }
 
 export function getWaveDuration(wave: number): number {
-  if (wave === 1) return 20000;
-  if (wave === 2) return 25000;
-  if (wave === 3) return 30000;
-  if (wave === 4) return 35000;
-  if (wave <= 10) return 45000;
-  if (wave <= 15) return 50000;
-  if (wave <= 20) return 55000;
-  if (wave <= 25) return 60000;
-  return 65000;
+  if (wave === 1) return 30000;
+  if (wave === 2) return 35000;
+  if (wave === 3) return 40000;
+  if (wave === 4) return 45000;
+  if (wave <= 10) return 50000;
+  if (wave <= 15) return 55000;
+  if (wave <= 20) return 60000;
+  if (wave <= 25) return 65000;
+  return 70000;
 }
 
 export function pickRandomRarity(): Rarity {
@@ -189,8 +195,11 @@ export function applyRarityToWeapon(wc: WeaponConfig, rarity: Rarity): Weapon {
     ammoMax: wc.ammoMax,
     reloadTime: wc.reloadTime,
     weaponType: wc.weaponType,
+    level: 1,
     lastFired: 0,
     ammo: wc.ammoMax,
+    reloading: false,
+    reloadTimer: 0,
     mods: [],
   };
 }
@@ -258,6 +267,16 @@ export const EVOLUTIONS: EvolutionRecipe[] = [
     weaponId: "machete", itemId: "foldingStock",
     resultName: "战术砍刀",
     result: { id: "evolved_machete", name: "战术砍刀", damage: 18, fireRate: 300, bulletCount: 0, spread: 0, bulletSpeed: 0, range: 60, ammoMax: 0, reloadTime: 0, cost: 0, weaponType: "melee" },
+  },
+  {
+    weaponId: "laser", itemId: "coffee",
+    resultName: "激光炮",
+    result: { id: "evolved_laser", name: "激光炮", damage: 6, fireRate: 40, bulletCount: 2, spread: 1, bulletSpeed: 650, range: 400, ammoMax: 80, reloadTime: 2500, penetrate: 5, weaponType: "ranged", cost: 0 },
+  },
+  {
+    weaponId: "freeze", itemId: "clover",
+    resultName: "暴风雪",
+    result: { id: "evolved_freeze", name: "暴风雪", damage: 12, fireRate: 300, bulletCount: 3, spread: 20, bulletSpeed: 300, range: 280, ammoMax: 18, reloadTime: 2000, splashRadius: 50, weaponType: "ranged", cost: 0 },
   },
 ];
 

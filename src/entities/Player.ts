@@ -1,14 +1,13 @@
 import Phaser from "phaser";
 import { PlayerStats, Weapon, Character, W, H, HIT_RANGE, MAX_WEAPONS, Power, MAX_POWERS, PowerConfig } from "../types";
 import { BASE_STATS, WEAPON_CONFIGS } from "../config";
+import { MetaProgress } from "../utils/MetaProgress";
 
 export class Player {
   sprite: Phaser.Physics.Arcade.Sprite;
   stats: PlayerStats;
   weapons: Weapon[];
   activeWeaponIdx = 0;
-  reloading = false;
-  reloadTimer = 0;
   iFrameTimer = 0;
   ownedItems = new Set<string>();
   grenadeCount = 0;
@@ -36,12 +35,15 @@ export class Player {
   private scene: Phaser.Scene;
   private abilityFireRateMult = 1;
   private abilitySpeedMult = 1;
+  readonly grenadeCooldownDuration = 8000;
+  abilityCooldownDuration: number;
 
   constructor(scene: Phaser.Scene, character?: Character) {
     this.scene = scene;
 
     if (character) {
       this.charId = character.id;
+      this.abilityCooldownDuration = character.abilityCooldown;
       this.stats = {
         ...BASE_STATS,
         hp: Math.round(BASE_STATS.maxHp * character.hpMult),
@@ -50,13 +52,23 @@ export class Player {
       };
       this.weapons = character.startWeapons.map(id => {
         const wc = WEAPON_CONFIGS.find(w => w.id === id) || WEAPON_CONFIGS[0];
-        return { ...wc, lastFired: 0, ammo: wc.ammoMax, mods: [] };
+        return { ...wc, level: 1, lastFired: 0, ammo: wc.ammoMax, reloading: false, reloadTimer: 0, mods: [] };
       });
       character.passive(this.stats, this.weapons);
+      MetaProgress.applyUpgrades(this.stats);
+      const metaDmg = MetaProgress.dmgMult;
+      if (metaDmg > 1) {
+        for (const w of this.weapons) w.damage = Math.round(w.damage * metaDmg);
+      }
     } else {
       this.stats = { ...BASE_STATS, hp: BASE_STATS.maxHp };
+      MetaProgress.applyUpgrades(this.stats);
       const wc = WEAPON_CONFIGS[0];
-      this.weapons = [{ ...wc, lastFired: 0, ammo: wc.ammoMax, mods: [] }];
+      this.weapons = [{ ...wc, level: 1, lastFired: 0, ammo: wc.ammoMax, reloading: false, reloadTimer: 0, mods: [] }];
+      const metaDmg = MetaProgress.dmgMult;
+      if (metaDmg > 1) {
+        for (const w of this.weapons) w.damage = Math.round(w.damage * metaDmg);
+      }
     }
 
     const texKey = character ? `player_${character.id}` : "player_merc";
@@ -73,8 +85,6 @@ export class Player {
 
   resetState() {
     this.activeWeaponIdx = 0;
-    this.reloading = false;
-    this.reloadTimer = 0;
     this.iFrameTimer = 0;
     this.ownedItems = new Set<string>();
     this.grenadeCount = 0;
@@ -121,13 +131,13 @@ export class Player {
         }
       }
     }
-    if (this.reloading) {
-      this.reloadTimer -= delta;
-      if (this.reloadTimer <= 0) {
-        const w = this.activeWeapon;
-        if (w) w.ammo = w.ammoMax;
-        this.reloading = false;
-        this.reloadTimer = 0;
+    for (const w of this.weapons) {
+      if (!w.reloading) continue;
+      w.reloadTimer -= delta;
+      if (w.reloadTimer <= 0) {
+        w.ammo = w.ammoMax;
+        w.reloading = false;
+        w.reloadTimer = 0;
       }
     }
     this.grenadeCooldown = Math.max(0, this.grenadeCooldown - delta);
@@ -173,19 +183,17 @@ export class Player {
   switchWeapon() {
     if (this.weapons.length < 2) return;
     this.activeWeaponIdx = this.activeWeaponIdx === 0 ? 1 : 0;
-    this.reloading = false;
-    this.reloadTimer = 0;
     const w = this.activeWeapon;
     if (w && w.ammo <= 0 && w.weaponType === "ranged") {
-      this.startReload();
+      this.startReload(w);
     }
   }
 
-  startReload() {
-    const w = this.activeWeapon;
-    if (!w) return;
-    this.reloading = true;
-    this.reloadTimer = w.reloadTime;
+  startReload(w?: Weapon) {
+    const weapon = w || this.activeWeapon;
+    if (!weapon || weapon.weaponType !== "ranged" || weapon.ammo >= weapon.ammoMax) return;
+    weapon.reloading = true;
+    weapon.reloadTimer = weapon.reloadTime;
   }
 
   takeDamage(amount: number, time: number): boolean {
@@ -207,8 +215,16 @@ export class Player {
   }
 
   addWeapon(w: Weapon) {
+    const existing = this.weapons.find(we => we.id === w.id);
+    if (existing) {
+      existing.level++;
+      existing.damage = Math.round(existing.damage * 1.15);
+      existing.fireRate = Math.round(existing.fireRate * 0.92);
+      if (existing.bulletCount < 5 && existing.level % 2 === 0 && existing.weaponType !== "melee") existing.bulletCount++;
+      return;
+    }
     if (this.weapons.length >= MAX_WEAPONS) return;
-    this.weapons.push({ ...w, lastFired: 0, ammo: w.ammoMax, mods: [] });
+    this.weapons.push({ ...w, level: 1, lastFired: 0, ammo: w.ammoMax, reloading: false, reloadTimer: 0, mods: [] });
   }
 
   addModToActive(mod: { apply: (w: Weapon) => void; remove: (w: Weapon) => void }) {
@@ -263,6 +279,7 @@ export class Player {
   }
 
   flashDamage() {
+    if (!this.scene.isActive()) return;
     this.sprite.setTint(0xff0000);
     this.scene.time.delayedCall(100, () => {
       if (this.sprite.active) this.sprite.clearTint();
@@ -284,7 +301,11 @@ export class Player {
 
   refillAmmo() {
     for (const w of this.weapons) {
-      if (w.weaponType === "ranged") w.ammo = w.ammoMax;
+      if (w.weaponType === "ranged") {
+        w.ammo = w.ammoMax;
+        w.reloading = false;
+        w.reloadTimer = 0;
+      }
     }
   }
 
@@ -306,6 +327,7 @@ export class Player {
   }
 
   private deactivateAbility() {
+    if (!this.scene.isActive()) return;
     this.abilityActive = false;
     this.abilityBonusCrit = false;
     this.abilityBonusDrops = false;

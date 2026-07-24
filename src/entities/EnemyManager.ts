@@ -28,16 +28,35 @@ export class EnemyManager {
     e.setAlpha(1);
     e.setScale(1);
     e.setData("killed", false);
+    e.setData("boss", false);
+    e.setData("elite", false);
+    e.setData("controlled", false);
+    e.setData("controlledTimer", 0);
+    e.setData("controlledDuration", 0);
+    e.setData("controlledDmgTimer", 0);
+    e.setData("bossCharging", false);
+    e.setData("chargeTimer", 0);
+    e.setData("chargerBurst", false);
+    e.setData("healTimer", 0);
+    e.setData("frozen", false);
+    e.setData("frozenTimer", 0);
     return e;
   }
 
   deactivateEnemy(e: Phaser.Physics.Arcade.Sprite) {
-    e.setActive(false).setVisible(false);
-    e.setVelocity(0, 0);
     if (e.body) e.body.enable = false;
-    e.setData("boss", false);
-    e.setData("elite", false);
-    e.setData("killed", true);
+    this.scene.tweens.add({
+      targets: e, alpha: 0, scaleX: 0.3, scaleY: 0.3, duration: 150,
+      onComplete: () => {
+        e.setActive(false).setVisible(false);
+        e.setVelocity(0, 0);
+        e.setAlpha(1);
+        e.setScale(1);
+        e.setData("boss", false);
+        e.setData("elite", false);
+        e.setData("killed", true);
+      },
+    });
   }
 
   private getTextureForType(type: EnemyType, bossWave?: number): string {
@@ -54,6 +73,8 @@ export class EnemyManager {
       case "ranged": return "zombie_ranged";
       case "charger": return "enemy_charger";
       case "exploder": return "enemy_exploder";
+      case "healer": return "skeleton_other";
+      case "invisible": return "skeleton_normal";
     }
   }
 
@@ -69,6 +90,7 @@ export class EnemyManager {
 
     e.setTint(sg.boss ? 0xcc0000 : sg.elite ? 0xffaa00 : eCfg.tint);
     e.setData("hp", Math.round(eCfg.hp * sg.hpMult));
+    e.setData("maxHp", Math.round(eCfg.hp * sg.hpMult));
     e.setData("speed", Math.round(eCfg.speed * sg.spdMult));
     e.setData("type", sg.type);
     e.setData("dropMult", sg.dropMult || eCfg.dropMult);
@@ -156,8 +178,7 @@ export class EnemyManager {
     }
   }
 
-  moveAllToward(tx: number, ty: number) {
-    const delta = this.scene.game.loop.delta;
+  moveAllToward(tx: number, ty: number, delta: number) {
     for (const enemy of this.list) {
       if (!enemy.active) continue;
       if (enemy.getData("controlled")) {
@@ -180,7 +201,7 @@ export class EnemyManager {
         const isBurst = enemy.getData("chargerBurst") as boolean || false;
         if (isBurst) { continue; }
         let chargeTimer = enemy.getData("chargeTimer") as number || 0;
-        chargeTimer -= this.scene.game.loop.delta;
+        chargeTimer -= delta;
         if (chargeTimer <= 0) {
           enemy.setData("chargeTimer", Phaser.Math.Between(1500, 3000));
           const angle = Phaser.Math.Angle.Between(enemy.x, enemy.y, tx, ty);
@@ -197,9 +218,49 @@ export class EnemyManager {
           const angle = Phaser.Math.Angle.Between(enemy.x, enemy.y, tx, ty);
           enemy.setVelocity(Math.cos(angle) * spd, Math.sin(angle) * spd);
         }
-      } else {
+      } else if (type === "healer") {
+        const dist = Phaser.Math.Distance.Between(enemy.x, enemy.y, tx, ty);
+        let closestAlly: Phaser.Physics.Arcade.Sprite | null = null;
+        let closestAllyDist = Infinity;
+        for (const ally of this.list) {
+          if (ally === enemy || !ally.active || ally.getData("type") === "healer") continue;
+          const d = Phaser.Math.Distance.Between(enemy.x, enemy.y, ally.x, ally.y);
+          if (d < closestAllyDist && d < 120) { closestAllyDist = d; closestAlly = ally; }
+        }
+        if (closestAlly) {
+          const allyAngle = Phaser.Math.Angle.Between(enemy.x, enemy.y, closestAlly.x, closestAlly.y);
+          enemy.setVelocity(Math.cos(allyAngle) * spd, Math.sin(allyAngle) * spd);
+          let healTimer = enemy.getData("healTimer") as number || 0;
+          healTimer += delta;
+          if (healTimer >= 1000) {
+            healTimer = 0;
+            const maxHp = closestAlly.getData("maxHp") as number;
+            const hp = Math.min((closestAlly.getData("hp") as number) + 10, maxHp);
+            closestAlly.setData("hp", hp);
+          }
+          enemy.setData("healTimer", healTimer);
+        } else if (dist > 300) {
+          const angle = Phaser.Math.Angle.Between(enemy.x, enemy.y, tx, ty);
+          enemy.setVelocity(Math.cos(angle) * spd, Math.sin(angle) * spd);
+        } else {
+          enemy.setVelocity(0, 0);
+        }
+      } else if (type === "invisible") {
+        const dist = Phaser.Math.Distance.Between(enemy.x, enemy.y, tx, ty);
+        const alpha = Phaser.Math.Clamp((dist - 50) / 250, 0.2, 1);
+        enemy.setAlpha(alpha);
         const angle = Phaser.Math.Angle.Between(enemy.x, enemy.y, tx, ty);
         enemy.setVelocity(Math.cos(angle) * spd, Math.sin(angle) * spd);
+      } else {
+        const angle = Phaser.Math.Angle.Between(enemy.x, enemy.y, tx, ty);
+        let speedMult = 1;
+        if (enemy.getData("frozen")) {
+          const frozenTimer = (enemy.getData("frozenTimer") as number || 0) - delta;
+          enemy.setData("frozenTimer", frozenTimer);
+          if (frozenTimer <= 0) { enemy.setData("frozen", false); enemy.clearTint(); }
+          else speedMult = 0.4;
+        }
+        enemy.setVelocity(Math.cos(angle) * spd * speedMult, Math.sin(angle) * spd * speedMult);
       }
     }
   }

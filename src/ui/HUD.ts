@@ -4,7 +4,8 @@ import { PlayerStats, Weapon, Power, W, H, MAX_POWERS } from "../types";
 export class HUD {
   private hpText: Phaser.GameObjects.Text;
   private matText: Phaser.GameObjects.Text;
-  private weaponText: Phaser.GameObjects.Text;
+private weaponText: Phaser.GameObjects.Text;
+  private weapon2Text: Phaser.GameObjects.Text;
   private waveText: Phaser.GameObjects.Text;
   private timerText: Phaser.GameObjects.Text;
   private announceText: Phaser.GameObjects.Text;
@@ -29,10 +30,11 @@ export class HUD {
     this.hpText = scene.add.text(10, 10, "", { fontSize: "16px", color: "#fff" });
     this.matText = scene.add.text(10, 28, "", { fontSize: "14px", color: "#ff0" });
     this.weaponText = scene.add.text(10, 46, "", { fontSize: "12px", color: "#aaa" }).setDepth(20);
+    this.weapon2Text = scene.add.text(10, 60, "", { fontSize: "11px", color: "#666" }).setDepth(20);
     this.grenadeText = scene.add.text(W - 10, 34, "", { fontSize: "13px", color: "#4f4" }).setOrigin(1, 0);
-    this.xpBarBg = scene.add.rectangle(10, 80, 150, 8, 0x333333).setOrigin(0, 0.5);
-    this.xpBarFill = scene.add.rectangle(10, 80, 150, 8, 0x44aaff).setOrigin(0, 0.5);
-    this.levelText = scene.add.text(10, 64, "", { fontSize: "11px", color: "#8cf" }).setOrigin(0, 0.5);
+    this.xpBarBg = scene.add.rectangle(10, 88, 150, 8, 0x333333).setOrigin(0, 0.5);
+    this.xpBarFill = scene.add.rectangle(10, 88, 150, 8, 0x44aaff).setOrigin(0, 0.5);
+    this.levelText = scene.add.text(10, 74, "", { fontSize: "11px", color: "#8cf" }).setOrigin(0, 0.5);
     this.waveText = scene.add.text(W - 10, 10, "", { fontSize: "16px", color: "#fff" }).setOrigin(1, 0);
     this.timerText = scene.add.text(W / 2, 10, "", { fontSize: "18px", color: "#ff0" }).setOrigin(0.5, 0);
     this.enemyCountText = scene.add.text(W / 2, 30, "", { fontSize: "13px", color: "#f88" }).setOrigin(0.5, 0);
@@ -58,12 +60,26 @@ export class HUD {
     const w = weapons[activeIdx];
     if (w) {
       if (reloading) {
-        this.weaponText.setText(`[${activeIdx + 1}/${weapons.length}] ${w.name}  换弹中...`);
+        this.weaponText.setText(`★ ${w.name}  换弹中...`);
       } else if (w.weaponType === "melee") {
-        this.weaponText.setText(`[${activeIdx + 1}/${weapons.length}] ${w.name}  近战`);
+        this.weaponText.setText(`★ ${w.name}  近战`);
       } else {
-        this.weaponText.setText(`[${activeIdx + 1}/${weapons.length}] ${w.name}  ${w.ammo}/${w.ammoMax}`);
+        this.weaponText.setText(`★ ${w.name}  ${w.ammo}/${w.ammoMax}`);
       }
+    }
+    const w2 = weapons.length > 1 ? weapons[1 - activeIdx] : null;
+    if (w2) {
+      const w2Reloading = w2.reloading;
+      if (w2Reloading) {
+        this.weapon2Text.setText(`  ${w2.name}  换弹中`);
+      } else if (w2.weaponType === "melee") {
+        this.weapon2Text.setText(`  ${w2.name}  近战`);
+      } else {
+        this.weapon2Text.setText(`  ${w2.name}  ${w2.ammo}/${w2.ammoMax}`);
+      }
+      this.weapon2Text.setVisible(true);
+    } else {
+      this.weapon2Text.setVisible(false);
     }
 
     this.waveText.setText(`波次: ${wave}`);

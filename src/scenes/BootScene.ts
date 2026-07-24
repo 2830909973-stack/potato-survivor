@@ -81,5 +81,20 @@ export class BootScene extends Phaser.Scene {
     ex.fillCircle(5, 5, 3);
     ex.generateTexture("enemy_exploder", 10, 10);
     ex.destroy();
+
+    const laser = this.make.graphics({ x: 0, y: 0 }, false);
+    laser.fillStyle(0x44aaff);
+    laser.fillRect(0, 1, 12, 2);
+    laser.fillRect(2, 0, 8, 4);
+    laser.generateTexture("bullet_laser", 12, 4);
+    laser.destroy();
+
+    const ice = this.make.graphics({ x: 0, y: 0 }, false);
+    ice.fillStyle(0x88ddff);
+    ice.fillCircle(4, 4, 4);
+    ice.fillStyle(0xffffff, 0.6);
+    ice.fillCircle(4, 4, 2);
+    ice.generateTexture("bullet_freeze", 8, 8);
+    ice.destroy();
   }
 }

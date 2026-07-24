@@ -1,11 +1,12 @@
 ﻿import Phaser from "phaser";
-import { Character, Weapon, SpawnRule, W, H, PICKUP_RANGE, Power, MAX_POWERS, PowerConfig } from "../types";
+import { Weapon, SpawnRule, W, H, PICKUP_RANGE, Power, MAX_POWERS, PowerConfig, Character } from "../types";
 import { Settings } from "../utils/Settings";
 import { SettingsUI } from "../ui/SettingsUI";
 import { VictoryUI } from "../ui/VictoryUI";
 import { WAVE_CONFIGS, getWaveDuration, calcRerollCost, ITEMS, XP_PER_KILL, BOSS_DATA, CONSUMABLES, EVOLUTIONS, getBiome } from "../config";
 import { AudioManager } from "../utils/AudioManager";
 import { Achievements } from "../utils/Achievements";
+import { MetaProgress } from "../utils/MetaProgress";
 import { EffectsManager } from "../utils/EffectsManager";
 import { Player } from "../entities/Player";
 import { EnemyManager } from "../entities/EnemyManager";
@@ -152,7 +153,7 @@ export class GameScene extends Phaser.Scene {
     this.player.update(time, delta);
     this.player.handleInput(this.cursors);
 
-    this.enemyMgr.moveAllToward(this.player.x, this.player.y);
+    this.enemyMgr.moveAllToward(this.player.x, this.player.y, delta);
     this.enemyMgr.rangedShoot(time, this.projectileMgr.enemyBullets, this.player.x, this.player.y);
 
     this.projectileMgr.checkHitsAgainst(this.enemyMgr.list, (b, e) => this.onBulletHit(b, e));
@@ -180,7 +181,7 @@ export class GameScene extends Phaser.Scene {
         if (hp <= 0) this.onEnemyKilled(e);
       }
     }
-    this.updatePowerAuras();
+    this.updatePowerAuras(delta);
     const boss = this.enemyMgr.getBoss();
     if (boss) {
       const hp = boss.getData("hp") as number;
@@ -191,7 +192,9 @@ export class GameScene extends Phaser.Scene {
       this.hud.hideBossHP();
     }
 
-    this.hud.update(this.player.stats, this.player.weapons, this.player.activeWeaponIdx, this.player.reloading, this.wave, this.waveTimer, this.bossPhase, this.player.grenadeCount, this.player.grenadeCooldown, this.enemyMgr.count, getWaveDuration(this.wave), this.player.abilityCooldown, this.player.powers, this.player.powerCooldowns, this.player.powerActive);
+    const w = this.player.activeWeapon;
+    const isReloading = w ? w.reloading : false;
+    this.hud.update(this.player.stats, this.player.weapons, this.player.activeWeaponIdx, isReloading, this.wave, this.waveTimer, this.bossPhase, this.player.grenadeCount, this.player.grenadeCooldown, this.enemyMgr.count, getWaveDuration(this.wave), this.player.abilityCooldown, this.player.powers, this.player.powerCooldowns, this.player.powerActive);
   }
 
   private startNextWave() {
@@ -199,8 +202,6 @@ export class GameScene extends Phaser.Scene {
     this.waveTimer = getWaveDuration(this.wave);
     this.bossActive = this.wave % 5 === 0;
     this.spawnRules = [];
-    this.player.reloading = false;
-    this.player.reloadTimer = 0;
     this.player.refillAmmo();
 
     const cfg = WAVE_CONFIGS[Math.min(this.wave - 1, WAVE_CONFIGS.length - 1)];
@@ -323,7 +324,16 @@ export class GameScene extends Phaser.Scene {
     if (!recipe) return;
     const idx = this.player.weapons.findIndex(w => w.id === recipe.weaponId);
     if (idx === -1) return;
-    const evolved: Weapon = { ...recipe.result, lastFired: 0, ammo: recipe.result.ammoMax, mods: [] };
+    const oldW = this.player.weapons[idx];
+    const evolved: Weapon = {
+      ...recipe.result,
+      level: oldW.level,
+      lastFired: 0,
+      ammo: recipe.result.ammoMax,
+      reloading: false,
+      reloadTimer: 0,
+      mods: [...oldW.mods],
+    };
     this.player.weapons[idx] = evolved;
     AudioManager.evolve();
     this.hud.announce(`进化! ${recipe.resultName}!`);
@@ -354,13 +364,18 @@ export class GameScene extends Phaser.Scene {
       peakAlive: this.stats_peakAlive, materialsEarned: this.stats_materialsEarned,
       charId: this.player.charId, won: true,
     });
-    for (const id of newAchievements) {
-      const a = Achievements.getAll().find(x => x.id === id);
-      if (a) {
-        const txt = this.add.text(W / 2, H / 2 + 40 * newAchievements.indexOf(id), `${a.name}: ${a.desc}`, {
-          fontSize: "16px", color: "#ff0", fontStyle: "bold", stroke: "#000", strokeThickness: 3,
-        }).setOrigin(0.5).setDepth(300);
-      }
+    const newChars = MetaProgress.checkCharUnlocks({
+      kills: this.stats_kills, materialsEarned: this.stats_materialsEarned,
+      wave: this.wave, won: true,
+    });
+    const allNew = [...newAchievements, ...newChars.map(id => {
+      const r = MetaProgress.getCharUnlockRequirement(id);
+      return r ? `🔓 解锁角色: ${r.name}` : "";
+    }).filter(Boolean)];
+    for (let i = 0; i < allNew.length; i++) {
+      const txt = this.add.text(W / 2, H / 2 + 40 * i, `${allNew[i]}`, {
+        fontSize: "16px", color: "#ff0", fontStyle: "bold", stroke: "#000", strokeThickness: 3,
+      }).setOrigin(0.5).setDepth(300);
     }
 
     this.victoryUI.show(this.wave, this.player.stats.level, this.stats_kills, this.stats_bossKills, this.stats_peakAlive, this.stats_materialsEarned,
@@ -528,6 +543,13 @@ export class GameScene extends Phaser.Scene {
       this.tweens.add({ targets: splashCircle, alpha: 0, scaleX: 1.3, scaleY: 1.3, duration: 200, onComplete: () => splashCircle.destroy() });
     }
 
+    const bId = b.getData("weaponId") as string;
+    if (bId === "freeze") {
+      e.setData("frozen", true);
+      e.setData("frozenTimer", 2000);
+      e.setTint(0x88ddff);
+    }
+
     const penetrate = b.getData("penetrate") as number | undefined;
     this.effects.damageNumber(e.x, e.y, dmg, isCrit);
     AudioManager.hit();
@@ -537,6 +559,9 @@ export class GameScene extends Phaser.Scene {
       this.onEnemyKilled(e);
     } else {
       this.effects.flashDamage(e);
+      const angle = Phaser.Math.Angle.Between(b.x, b.y, e.x, e.y);
+      e.setVelocity(Math.cos(angle) * 200, Math.sin(angle) * 200);
+      this.time.delayedCall(80, () => { if (e.active) e.setVelocity(0, 0); });
     }
     if (penetrate && penetrate > 0) {
       b.setData("penetrate", penetrate - 1);
@@ -579,19 +604,20 @@ export class GameScene extends Phaser.Scene {
     if (eType === "exploder") {
       AudioManager.explosion();
       const nearby = this.enemyMgr.getEnemiesInRange(e.x, e.y, 60);
+      const toKill: Phaser.Physics.Arcade.Sprite[] = [];
       for (const other of nearby) {
         if (other === e) continue;
         const hp = (other.getData("hp") as number) - 30;
         other.setData("hp", hp);
-        if (hp <= 0) this.onEnemyKilled(other);
+        if (hp <= 0) toKill.push(other);
         else this.effects.flashDamage(other);
       }
+      for (const tk of toKill) this.onEnemyKilled(tk);
       const dToPlayer = Phaser.Math.Distance.Between(e.x, e.y, this.player.x, this.player.y);
       if (dToPlayer < 60) {
         const dead = this.player.takeDamage(20, this.time.now);
         if (dead) { this.endGame(); return; }
       }
-      this.effects.deathEffect(e.x, e.y);
       this.effects.deathEffect(e.x, e.y);
       this.shakeScreen(150, 0.012);
     }
@@ -605,6 +631,7 @@ export class GameScene extends Phaser.Scene {
       this.stats_bossKills++;
       AudioManager.explosion();
       this.shakeScreen(300, 0.02);
+      this.cameras.main.flash(300, 255, 0, 0);
       this.effects.deathEffect(e.x, e.y);
       this.effects.deathEffect(e.x - 20, e.y - 20);
       this.effects.deathEffect(e.x + 20, e.y + 20);
@@ -617,147 +644,112 @@ export class GameScene extends Phaser.Scene {
   }
 
   private autoShoot(time: number) {
-    const w = this.player.activeWeapon;
-    if (!w || this.player.reloading) return;
-    if (time - w.lastFired < w.fireRate) return;
     const nearest = this.enemyMgr.getNearest(this.player.x, this.player.y);
     if (!nearest) return;
 
-    const distToTarget = Phaser.Math.Distance.Between(this.player.x, this.player.y, nearest.x, nearest.y);
-    if (distToTarget > w.range) return;
+    for (const w of this.player.weapons) {
+      if (w.reloading) continue;
+      if (time - w.lastFired < w.fireRate) continue;
 
-    if (w.weaponType === "melee") {
+      const distToTarget = Phaser.Math.Distance.Between(this.player.x, this.player.y, nearest.x, nearest.y);
+      if (distToTarget > w.range) continue;
+
+      if (w.weaponType === "melee") {
+        w.lastFired = time;
+        const meleeDmg = Math.round(w.damage * this.player.abilityDmgMult);
+        const nearby = this.enemyMgr.getEnemiesInRange(this.player.x, this.player.y, w.range);
+        for (const e of nearby) {
+          const hp = (e.getData("hp") as number) - meleeDmg;
+          e.setData("hp", hp);
+          this.effects.damageNumber(e.x, e.y, meleeDmg, false);
+          if (hp <= 0) this.onEnemyKilled(e);
+          else this.effects.flashDamage(e);
+        }
+        if (nearby.length > 0) {
+          this.effects.deathEffect(nearest.x, nearest.y);
+          this.shakeScreen(60, 0.003);
+        }
+        continue;
+      }
+
+      if (w.ammo <= 0) {
+        this.player.startReload(w);
+        continue;
+      }
+
       w.lastFired = time;
-      const meleeDmg = Math.round(w.damage * this.player.abilityDmgMult);
-      const nearby = this.enemyMgr.getEnemiesInRange(this.player.x, this.player.y, w.range);
-      for (const e of nearby) {
-        const hp = (e.getData("hp") as number) - meleeDmg;
-        e.setData("hp", hp);
-        this.effects.damageNumber(e.x, e.y, meleeDmg, false);
-        if (hp <= 0) this.onEnemyKilled(e);
-        else this.effects.flashDamage(e);
+      w.ammo--;
+
+      const angle = Phaser.Math.Angle.Between(this.player.x, this.player.y, nearest.x, nearest.y);
+      const startAngle = angle - (w.spread * (w.bulletCount - 1)) / 2 * Math.PI / 180;
+
+      const texKey = w.id === "laser" ? "bullet_laser" : w.id === "freeze" ? "bullet_freeze" : "bullet";
+      const isFreeze = w.id === "freeze";
+
+      for (let i = 0; i < w.bulletCount; i++) {
+        const a = startAngle + w.spread * i * Math.PI / 180;
+        const bullet = this.projectileMgr.fireBullet(this.player.x, this.player.y, a, w.bulletSpeed, w.damage, w.range, w.splashRadius, w.penetrate, texKey);
+        if (bullet && isFreeze) bullet.setData("weaponId", "freeze");
       }
-      if (nearby.length > 0) {
-        this.effects.deathEffect(nearest.x, nearest.y);
-        this.shakeScreen(60, 0.003);
+
+      AudioManager.shoot();
+      const muzzle = this.add.circle(this.player.x, this.player.y, 8, 0xffff88, 1).setDepth(40);
+      this.tweens.add({ targets: muzzle, alpha: 0, scaleX: 2, scaleY: 2, duration: 120, onComplete: () => muzzle.destroy() });
+
+      if (w.ammo <= 0) {
+        this.player.startReload(w);
       }
-      return;
-    }
-
-    if (w.ammo <= 0) {
-      this.player.startReload();
-      return;
-    }
-
-    w.lastFired = time;
-    w.ammo--;
-
-    const angle = Phaser.Math.Angle.Between(this.player.x, this.player.y, nearest.x, nearest.y);
-    const startAngle = angle - (w.spread * (w.bulletCount - 1)) / 2 * Math.PI / 180;
-
-    for (let i = 0; i < w.bulletCount; i++) {
-      const a = startAngle + w.spread * i * Math.PI / 180;
-      this.projectileMgr.fireBullet(this.player.x, this.player.y, a, w.bulletSpeed, w.damage, w.range, w.splashRadius, w.penetrate);
-    }
-
-    AudioManager.shoot();
-    const muzzle = this.add.circle(this.player.x, this.player.y, 8, 0xffff88, 1).setDepth(40);
-    this.tweens.add({ targets: muzzle, alpha: 0, scaleX: 2, scaleY: 2, duration: 120, onComplete: () => muzzle.destroy() });
-
-    if (w.ammo <= 0) {
-      this.player.startReload();
     }
   }
 
   private checkPickup() {
-    const magnetRange = PICKUP_RANGE + this.player.stats.pickupRangeBonus + 100;
-    const pullSpeed = 0.08;
-    for (let i = this.dropList.length - 1; i >= 0; i--) {
-      const m = this.dropList[i];
-      if (!m.active) continue;
-      const d = Phaser.Math.Distance.Between(this.player.x, this.player.y, m.x, m.y);
-      if (d < PICKUP_RANGE + this.player.stats.pickupRangeBonus) {
-        AudioManager.pickup();
-        const val = m.getData("value") as number;
-        this.player.stats.materials += val;
-        this.stats_materialsEarned += val;
-        const text = this.add.text(m.x, m.y, `+${val}`, {
-          fontSize: "12px", color: "#0f8",
-        }).setOrigin(0.5).setDepth(50);
-        this.tweens.add({
-          targets: text,
-          y: text.y - 30,
-          alpha: 0,
-          duration: 600,
-          onComplete: () => text.destroy(),
-        });
-        m.destroy();
-        this.dropList.splice(i, 1);
-      } else if (d < magnetRange) {
-        m.x += (this.player.x - m.x) * pullSpeed;
-        m.y += (this.player.y - m.y) * pullSpeed;
-      }
-    }
-  }
-
-  private spawnMaterialDrop(x: number, y: number, mult: number) {
-    if (this.dropList.length >= 40) return;
-    if (this.player.abilityBonusDrops) mult *= 2;
-    const count = Math.max(1, Math.round(Phaser.Math.Between(1, 3) * mult));
-    for (let i = 0; i < count; i++) {
-      const offX = Phaser.Math.Between(-15, 15);
-      const offY = Phaser.Math.Between(-15, 15);
-      const m = this.add.image(x + offX, y + offY, "material");
-      m.setData("value", Math.round(Phaser.Math.Between(1, 2) * mult));
-      m.setDepth(5);
-      this.dropList.push(m);
-    }
-  }
-
-  private spawnXpDrop(x: number, y: number, totalXp: number) {
-    if (this.xpDropList.length >= 30) return;
-    const count = Phaser.Math.Between(2, 4);
-    const perOrb = Math.max(1, Math.floor(totalXp / count));
-    const remainder = totalXp - perOrb * count;
-    for (let i = 0; i < count; i++) {
-      const offX = Phaser.Math.Between(-20, 20);
-      const offY = Phaser.Math.Between(-20, 20);
-      const orb = this.add.image(x + offX, y + offY, "xp_orb");
-      orb.setData("xp", perOrb + (i < remainder ? 1 : 0));
-      orb.setDepth(5);
-      orb.setScale(1.2);
-      this.xpDropList.push(orb);
-    }
+    this.pullPickupList(this.dropList, "value", (m, val) => {
+      this.player.stats.materials += val;
+      this.stats_materialsEarned += val;
+    }, "#0f8", 12);
   }
 
   private checkXpPickup() {
+    this.pullPickupList(this.xpDropList, "xp", (orb, xpVal) => {
+      const leveled = this.player.awardXP(xpVal);
+      this.pendingLevelUps += leveled;
+    }, "#4f4", 10);
+  }
+
+  private pullPickupList(
+    list: Phaser.GameObjects.Image[],
+    dataKey: string,
+    onCollect: (obj: Phaser.GameObjects.Image, val: number) => void,
+    color: string,
+    fontSize: number,
+  ) {
     const magnetRange = PICKUP_RANGE + this.player.stats.pickupRangeBonus + 100;
     const pullSpeed = 0.08;
-    for (let i = this.xpDropList.length - 1; i >= 0; i--) {
-      const orb = this.xpDropList[i];
-      if (!orb.active) continue;
-      const d = Phaser.Math.Distance.Between(this.player.x, this.player.y, orb.x, orb.y);
+    for (let i = list.length - 1; i >= 0; i--) {
+      const obj = list[i];
+      if (!obj.active) continue;
+      const d = Phaser.Math.Distance.Between(this.player.x, this.player.y, obj.x, obj.y);
       if (d < PICKUP_RANGE + this.player.stats.pickupRangeBonus) {
         AudioManager.pickup();
-        const xpVal = orb.getData("xp") as number;
-        const leveled = this.player.awardXP(xpVal);
-        this.pendingLevelUps += leveled;
-        const text = this.add.text(orb.x, orb.y, `+${xpVal}`, {
-          fontSize: "10px", color: "#4f4",
+        const val = obj.getData(dataKey) as number;
+        onCollect(obj, val);
+        const text = this.add.text(obj.x, obj.y, `+${val}`, {
+          fontSize: `${fontSize}px`, color,
         }).setOrigin(0.5).setDepth(50);
         this.tweens.add({
-          targets: text, y: text.y - 25, alpha: 0, duration: 400,
+          targets: text, y: text.y - 25, alpha: 0, duration: fontSize > 10 ? 600 : 400,
           onComplete: () => text.destroy(),
         });
-        orb.destroy();
-        this.xpDropList.splice(i, 1);
+        obj.destroy();
+        list.splice(i, 1);
       } else if (d < magnetRange) {
-        orb.x += (this.player.x - orb.x) * pullSpeed;
-        orb.y += (this.player.y - orb.y) * pullSpeed;
+        obj.x += (this.player.x - obj.x) * pullSpeed;
+        obj.y += (this.player.y - obj.y) * pullSpeed;
       }
     }
   }
 
+  
   private endGame() {
     this.gameOver = true;
     AudioManager.stopBGM();
@@ -768,13 +760,18 @@ export class GameScene extends Phaser.Scene {
       peakAlive: this.stats_peakAlive, materialsEarned: this.stats_materialsEarned,
       charId: this.player.charId, won: this.wave >= 30,
     });
-    for (const id of newAchievements) {
-      const a = Achievements.getAll().find(x => x.id === id);
-      if (a) {
-        const txt = this.add.text(W / 2, H / 2 + 40 * newAchievements.indexOf(id), `🏆 ${a.name}: ${a.desc}`, {
-          fontSize: "18px", color: "#ff0", fontStyle: "bold", stroke: "#000", strokeThickness: 3,
-        }).setOrigin(0.5).setDepth(300);
-      }
+    const newChars = MetaProgress.checkCharUnlocks({
+      kills: this.stats_kills, materialsEarned: this.stats_materialsEarned,
+      wave: this.wave, won: this.wave >= 30,
+    });
+    const allNew = [...newAchievements, ...newChars.map(id => {
+      const r = MetaProgress.getCharUnlockRequirement(id);
+      return r ? `🔓 解锁角色: ${r.name}` : "";
+    }).filter(Boolean)];
+    for (let i = 0; i < allNew.length; i++) {
+      const txt = this.add.text(W / 2, H / 2 + 40 * i, `${allNew[i]}`, {
+        fontSize: "18px", color: "#ff0", fontStyle: "bold", stroke: "#000", strokeThickness: 3,
+      }).setOrigin(0.5).setDepth(300);
     }
 
     this.gameOverUI.show(this.wave, this.player.stats.level, this.stats_kills, this.stats_bossKills, this.stats_peakAlive, this.stats_materialsEarned,
@@ -818,16 +815,68 @@ export class GameScene extends Phaser.Scene {
     this.pauseContainer.removeAll(true);
     this.pauseContainer.setVisible(true);
 
-    const bg = this.add.rectangle(W / 2, H / 2, W, H, 0x000000, 0.6).setOrigin(0.5);
-    const title = this.add.text(W / 2, H / 2 - 80, "游戏暂停", { fontSize: "48px", color: "#fff", fontStyle: "bold" }).setOrigin(0.5);
-    const resumeBtn = this.add.rectangle(W / 2, H / 2, 200, 50, 0x44aa44).setInteractive({ useHandCursor: true }).setStrokeStyle(2, 0x66cc66);
-    const resumeLabel = this.add.text(W / 2, H / 2, "继续游戏", { fontSize: "18px", color: "#fff", fontStyle: "bold" }).setOrigin(0.5);
+    const bg = this.add.rectangle(W / 2, H / 2, W, H, 0x000000, 0.65).setOrigin(0.5);
+    const title = this.add.text(W / 2, 30, "游戏暂停", { fontSize: "36px", color: "#fff", fontStyle: "bold" }).setOrigin(0.5);
+
+    const statsX = 240;
+    const s = this.player.stats;
+    const statsLines = [
+      `Lv.${s.level}  波次 ${this.wave}  击杀 ${this.stats_kills}`,
+      `HP: ${s.hp}/${s.maxHp}  护甲: ${s.armor}  材料: ${s.materials}`,
+      `移速: ${s.speed}  暴击: ${Math.round(s.critChance * 100)}%  闪避: ${Math.round(s.dodge * 100)}%`,
+      `经验: ${s.xp}/${s.xpToNext}`,
+    ];
+    const statsPanel = this.add.rectangle(statsX, 200, 420, 120, 0x111122, 0.85).setStrokeStyle(1, 0x4466aa);
+    const statsText = this.add.text(statsX - 195, 155, statsLines.join("\n"), { fontSize: "13px", color: "#ccc", lineSpacing: 8 });
+
+    const weaponY = 290;
+    const weaponLabel = this.add.text(statsX - 195, weaponY, "━ 武器 ━", { fontSize: "13px", color: "#ff0" });
+    const wpLines = this.player.weapons.map((w, i) => {
+      const active = i === this.player.activeWeaponIdx ? "★ " : "  ";
+      const ammoStr = w.weaponType === "ranged" ? ` ${w.ammo}/${w.ammoMax}` : "";
+      const modStr = w.mods.length > 0 ? ` [${w.mods.map(m => m.name).join(",")}]` : "";
+      return `${active}Lv.${w.level} ${w.name} 伤害${w.damage} 射速${w.fireRate}ms${ammoStr}${modStr}`;
+    });
+    const weaponText = this.add.text(statsX - 195, weaponY + 20, wpLines.join("\n"), { fontSize: "12px", color: "#aaa", lineSpacing: 6 });
+
+    const powerY = weaponY + 20 + this.player.weapons.length * 22 + 10;
+    const ownedPower = this.player.powers.filter(p => p);
+    if (ownedPower.length > 0) {
+      const powerLabel = this.add.text(statsX - 195, powerY, "━ 异能 ━", { fontSize: "13px", color: "#f4f" });
+      const pwLines = ownedPower.map(p => `  ${p!.name} Lv.${p!.level}/${p!.maxLevel}`);
+      const powerText = this.add.text(statsX - 195, powerY + 20, pwLines.join("\n"), { fontSize: "12px", color: "#aaa", lineSpacing: 6 });
+      this.pauseContainer.add([powerLabel, powerText]);
+    }
+
+    const ownedItems = [...this.player.ownedItems].map(id => {
+      const item = ITEMS.find(i => i.id === id);
+      return item ? item.name : id;
+    });
+    if (ownedItems.length > 0) {
+      const itemY = powerY + (ownedPower.length > 0 ? 20 + ownedPower.length * 22 : 0) + 10;
+      const itemLabel = this.add.text(statsX - 195, itemY, "━ 道具 ━", { fontSize: "13px", color: "#4f8" });
+      const itemText = this.add.text(statsX - 195, itemY + 20, `  ${ownedItems.join(" · ")}`, { fontSize: "12px", color: "#aaa" });
+      this.pauseContainer.add([itemLabel, itemText]);
+    }
+
+    const btnX = 900;
+    const resumeBtn = this.add.rectangle(btnX, 140, 200, 50, 0x44aa44).setInteractive({ useHandCursor: true }).setStrokeStyle(2, 0x66cc66);
+    const resumeLabel = this.add.text(btnX, 140, "继续游戏", { fontSize: "18px", color: "#fff", fontStyle: "bold" }).setOrigin(0.5);
     resumeBtn.on("pointerover", () => resumeBtn.setFillStyle(0x55cc55));
     resumeBtn.on("pointerout", () => resumeBtn.setFillStyle(0x44aa44));
     resumeBtn.on("pointerdown", () => this.togglePause());
 
-    const menuBtn = this.add.rectangle(W / 2, H / 2 + 140, 200, 50, 0xaa4444).setInteractive({ useHandCursor: true }).setStrokeStyle(2, 0xcc6666);
-    const menuLabel = this.add.text(W / 2, H / 2 + 140, "返回主菜单", { fontSize: "18px", color: "#fff", fontStyle: "bold" }).setOrigin(0.5);
+    const setBtn = this.add.rectangle(btnX, 210, 200, 50, 0x884488).setInteractive({ useHandCursor: true }).setStrokeStyle(2, 0xaa66aa);
+    const setLabel = this.add.text(btnX, 210, "设置", { fontSize: "18px", color: "#fff", fontStyle: "bold" }).setOrigin(0.5);
+    setBtn.on("pointerover", () => setBtn.setFillStyle(0xaa55aa));
+    setBtn.on("pointerout", () => setBtn.setFillStyle(0x884488));
+    setBtn.on("pointerdown", () => {
+      this.settingsUI.show(() => { this.pauseContainer.setVisible(true); });
+      this.pauseContainer.setVisible(false);
+    });
+
+    const menuBtn = this.add.rectangle(btnX, 280, 200, 50, 0xaa4444).setInteractive({ useHandCursor: true }).setStrokeStyle(2, 0xcc6666);
+    const menuLabel = this.add.text(btnX, 280, "返回主菜单", { fontSize: "18px", color: "#fff", fontStyle: "bold" }).setOrigin(0.5);
     menuBtn.on("pointerover", () => menuBtn.setFillStyle(0xcc5555));
     menuBtn.on("pointerout", () => menuBtn.setFillStyle(0xaa4444));
     menuBtn.on("pointerdown", () => {
@@ -841,16 +890,7 @@ export class GameScene extends Phaser.Scene {
       this.scene.start("TitleScene");
     });
 
-    const setBtn = this.add.rectangle(W / 2, H / 2 + 70, 200, 50, 0x884488).setInteractive({ useHandCursor: true }).setStrokeStyle(2, 0xaa66aa);
-    const setLabel = this.add.text(W / 2, H / 2 + 70, "设置", { fontSize: "18px", color: "#fff", fontStyle: "bold" }).setOrigin(0.5);
-    setBtn.on("pointerover", () => setBtn.setFillStyle(0xaa55aa));
-    setBtn.on("pointerout", () => setBtn.setFillStyle(0x884488));
-    setBtn.on("pointerdown", () => {
-      this.settingsUI.show(() => { this.pauseContainer.setVisible(true); });
-      this.pauseContainer.setVisible(false);
-    });
-
-    this.pauseContainer.add([bg, title, resumeBtn, resumeLabel, setBtn, setLabel, menuBtn, menuLabel]);
+    this.pauseContainer.add([bg, title, statsPanel, statsText, weaponLabel, weaponText, resumeBtn, resumeLabel, setBtn, setLabel, menuBtn, menuLabel]);
   }
 
   private setupKeys() {
@@ -865,16 +905,15 @@ export class GameScene extends Phaser.Scene {
 
     qKey.on("down", () => this.player.switchWeapon());
     rKey.on("down", () => {
-      if (this.player.reloading) return;
       const w = this.player.activeWeapon;
-      if (w && w.weaponType === "ranged" && w.ammo < w.ammoMax) {
-        this.player.startReload();
+      if (w && !w.reloading && w.weaponType === "ranged" && w.ammo < w.ammoMax) {
+        this.player.startReload(w);
       }
     });
     gKey.on("down", () => {
       if (this.player.grenadeCount <= 0 || this.player.grenadeCooldown > 0) return;
       this.player.grenadeCount--;
-      this.player.grenadeCooldown = 8000;
+      this.player.grenadeCooldown = this.player.grenadeCooldownDuration;
       const nearest = this.enemyMgr.getNearest(this.player.x, this.player.y);
       const angle = Phaser.Math.Angle.Between(
         this.player.x, this.player.y,
@@ -909,8 +948,7 @@ export class GameScene extends Phaser.Scene {
 
   private powerAuraTimers = [0, 0];
 
-  private updatePowerAuras() {
-    const delta = this.game.loop.delta;
+  private updatePowerAuras(delta = this.game.loop.delta) {
     for (let i = 0; i < MAX_POWERS; i++) {
       if (!this.player.powerActive[i]) continue;
       const p = this.player.powers[i];
@@ -937,7 +975,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   private shakeScreen(duration: number, intensity: number) {
-    if (Settings.screenShake) this.shakeScreen(duration, intensity);
+    if (Settings.screenShake) this.cameras.main.shake(duration, intensity);
   }
 
   private checkControlledKills() {
@@ -953,6 +991,12 @@ export class GameScene extends Phaser.Scene {
     if (this.gameOver || this.paused || this.inShop || this.levelingUp) return;
     const p = this.player.powers[slot];
     if (!p || this.player.powerCooldowns[slot] > 0 || this.player.powerActive[slot]) return;
+
+    if (p.id === "zombieControl") {
+      const nearest = this.enemyMgr.getNearest(this.player.x, this.player.y);
+      if (!nearest) return;
+    }
+
     this.player.activatePower(slot);
 
     switch (p.id) {
@@ -989,11 +1033,12 @@ export class GameScene extends Phaser.Scene {
       }
       case "psychicStorm": {
         this.hud.announce("精神风暴!");
+        this.powerAuraTimers[slot] = 500;
         const stormGfx = this.add.circle(this.player.x, this.player.y, 80, 0xaa44ff, 0.15).setDepth(30);
         const checkId = this.time.addEvent({
           delay: 50, loop: true,
           callback: () => {
-            if (!this.player.powerActive[slot]) { checkId.destroy(); stormGfx.destroy(); return; }
+            if (!this.scene.isActive() || !this.player.powerActive[slot]) { checkId.destroy(); if (stormGfx.active) stormGfx.destroy(); return; }
             stormGfx.setPosition(this.player.x, this.player.y);
           },
         });
@@ -1034,11 +1079,12 @@ export class GameScene extends Phaser.Scene {
       }
       case "lifeDrain": {
         this.hud.announce("💀 生命汲取!");
+        this.powerAuraTimers[slot] = 500;
         const drainGfx = this.add.circle(this.player.x, this.player.y, 80, 0xff2266, 0.12).setDepth(30);
         const checkId = this.time.addEvent({
           delay: 50, loop: true,
           callback: () => {
-            if (!this.player.powerActive[slot]) { checkId.destroy(); drainGfx.destroy(); return; }
+            if (!this.scene.isActive() || !this.player.powerActive[slot]) { checkId.destroy(); if (drainGfx.active) drainGfx.destroy(); return; }
             drainGfx.setPosition(this.player.x, this.player.y);
           },
         });
@@ -1050,9 +1096,7 @@ export class GameScene extends Phaser.Scene {
   private useAbility() {
     if (this.gameOver || this.paused || this.inShop || this.levelingUp) return;
     if (this.player.abilityCooldown > 0 || this.player.abilityActive) return;
-    const charData = (this.scene.settings.data as { character?: Character })?.character;
-    const cd = charData?.abilityCooldown ?? 12000;
-    this.player.abilityCooldown = cd;
+    this.player.abilityCooldown = this.player.abilityCooldownDuration;
 
     switch (this.player.charId) {
       case "merc":

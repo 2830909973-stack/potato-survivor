@@ -1,5 +1,4 @@
 import Phaser from "phaser";
-import { W, H } from "../types";
 
 export class EffectsManager {
   private scene: Phaser.Scene;
@@ -24,10 +23,11 @@ export class EffectsManager {
   deathEffect(x: number, y: number) {
     if (!this.deathEmitter) {
       this.deathEmitter = this.scene.add.particles(0, 0, "particle", {
-        speed: { min: 50, max: 150 },
-        lifespan: 400,
-        quantity: 8,
-        scale: { start: 1, end: 0 },
+        speed: { min: 60, max: 200 },
+        lifespan: 500,
+        quantity: 12,
+        scale: { start: 1.5, end: 0 },
+        tint: [0xff4444, 0xff8800, 0xffcc00],
         emitting: false,
       });
     }
@@ -35,27 +35,12 @@ export class EffectsManager {
     this.deathEmitter.explode();
   }
 
-  splashCircle(x: number, y: number, radius: number) {
-    const circle = this.scene.add.circle(x, y, radius, 0xff8800, 0.25).setDepth(35);
-    this.scene.tweens.add({
-      targets: circle, alpha: 0, scaleX: 1.3, scaleY: 1.3, duration: 200,
-      onComplete: () => circle.destroy(),
-    });
-  }
-
   flashDamage(obj: Phaser.GameObjects.Sprite) {
+    if (!this.scene.isActive() || !obj.active) return;
     obj.setTint(0xff0000);
     this.scene.time.delayedCall(100, () => {
       if (obj.active) obj.clearTint();
     });
   }
 
-  announce(text: string) {
-    const t = this.scene.add.text(W / 2, H / 2 - 40, text, {
-      fontSize: "40px", color: "#fff", fontStyle: "bold",
-    }).setOrigin(0.5).setAlpha(0).setDepth(50);
-    this.scene.tweens.add({
-      targets: t, alpha: 0, y: H / 2 - 60, duration: 1500, ease: "Power2",
-    });
   }
-}

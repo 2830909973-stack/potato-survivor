@@ -1,6 +1,9 @@
 import Phaser from "phaser";
 import { Character } from "../types";
 import { Achievements } from "../utils/Achievements";
+import { MetaProgress, META_UPGRADES } from "../utils/MetaProgress";
+import { SettingsUI } from "../ui/SettingsUI";
+import { showTutorial, hasSeenTutorial } from "../ui/Tutorial";
 
 const CHARACTERS: Character[] = [
   {
@@ -67,6 +70,9 @@ export class CharacterSelectScene extends Phaser.Scene {
   private previewContainer!: Phaser.GameObjects.Container;
   private cardsContainer!: Phaser.GameObjects.Container;
   private btnContainer!: Phaser.GameObjects.Container;
+  private achText1: Phaser.GameObjects.Text | null = null;
+  private achText2: Phaser.GameObjects.Text | null = null;
+  private geneText!: Phaser.GameObjects.Text;
 
   constructor() {
     super("CharacterSelectScene");
@@ -75,6 +81,7 @@ export class CharacterSelectScene extends Phaser.Scene {
   create() {
     this.add.rectangle(W / 2, H / 2, W, H, 0x1a1a2e);
     this.add.text(W / 2, 30, "选择角色", { fontSize: "28px", color: "#ff0", fontStyle: "bold" }).setOrigin(0.5);
+    this.geneText = this.add.text(W - 10, 10, `基因: ${MetaProgress.genePoints}`, { fontSize: "14px", color: "#ff0" }).setOrigin(1, 0);
 
     this.previewContainer = this.add.container(0, 0);
     this.cardsContainer = this.add.container(0, 0);
@@ -138,28 +145,45 @@ export class CharacterSelectScene extends Phaser.Scene {
         const color = COLORS[idx];
         const x = startX + i * (CARD_W + CARD_GAP);
 
-        const cardBg = this.add.rectangle(x, y, CARD_W, 120, 0x222244).setInteractive({ useHandCursor: true });
+const cardBg = this.add.rectangle(x, y, CARD_W, 120, 0x222244).setInteractive({ useHandCursor: true });
         cardBg.setStrokeStyle(2, color);
 
         const nameBg = this.add.rectangle(x, y - 44, CARD_W - 8, 26, color, 0.4).setOrigin(0.5);
         const nameText = this.add.text(x, y - 44, char.name, { fontSize: "14px", color: "#fff", fontStyle: "bold" }).setOrigin(0.5);
-        const descText = this.add.text(x, y - 10, char.desc, { fontSize: "10px", color: "#aaa", align: "center", wordWrap: { width: CARD_W - 16 } }).setOrigin(0.5);
-        const weaponText = this.add.text(x, y + 28, `武器: ${char.startWeapons.join("/")}`, { fontSize: "10px", color: "#ff8", align: "center" }).setOrigin(0.5);
 
-        if (idx === this.selectedIdx) {
+        const unlocked = MetaProgress.isCharUnlocked(char.id);
+        if (!unlocked) {
+          cardBg.setAlpha(0.4);
+          nameBg.setAlpha(0.3);
+          nameText.setAlpha(0.4);
+        }
+
+        const descText = this.add.text(x, y - 10, unlocked ? char.desc : "🔒 未解锁", { fontSize: "10px", color: unlocked ? "#aaa" : "#f84", align: "center", wordWrap: { width: CARD_W - 16 } }).setOrigin(0.5);
+        const weaponText = this.add.text(x, y + 28, unlocked ? `武器: ${char.startWeapons.join("/")}` : "", { fontSize: "10px", color: "#ff8", align: "center" }).setOrigin(0.5);
+
+        if (!unlocked) {
+          const req = MetaProgress.getCharUnlockRequirement(char.id);
+          const reqText = this.add.text(x, y + 42, req ? req.desc : "", { fontSize: "8px", color: "#888", align: "center", wordWrap: { width: CARD_W - 12 } }).setOrigin(0.5);
+          this.cardsContainer.add(reqText);
+        }
+
+        if (idx === this.selectedIdx && unlocked) {
           cardBg.setFillStyle(0x333366);
+        } else if (!unlocked) {
+          cardBg.setFillStyle(0x111122);
         }
 
         cardBg.on("pointerover", () => {
-          if (this.selectedIdx !== idx) cardBg.setFillStyle(0x333366);
+          if (this.selectedIdx !== idx && unlocked) cardBg.setFillStyle(0x333366);
         });
         cardBg.on("pointerout", () => {
-          if (this.selectedIdx !== idx) cardBg.setFillStyle(0x222244);
+          if (this.selectedIdx !== idx && unlocked) cardBg.setFillStyle(0x222244);
         });
         cardBg.on("pointerdown", () => {
+          if (!unlocked) return;
           this.selectedIdx = idx;
-    this.renderAll();
-    this.renderAchievements();
+          this.renderAll();
+          this.renderAchievements();
         });
 
         this.cardsContainer.add([cardBg, nameBg, nameText, descText, weaponText]);
@@ -176,13 +200,23 @@ export class CharacterSelectScene extends Phaser.Scene {
     btn.on("pointerover", () => btn.setFillStyle(0x55cc55));
     btn.on("pointerout", () => btn.setFillStyle(0x44aa44));
     btn.on("pointerdown", () => {
-      this.scene.start("GameScene", { character: CHARACTERS[this.selectedIdx] });
+      const char = CHARACTERS[this.selectedIdx];
+      if (!MetaProgress.isCharUnlocked(char.id)) return;
+      if (hasSeenTutorial()) {
+        this.scene.start("GameScene", { character: char });
+      } else {
+        showTutorial(this, () => {
+          this.scene.start("GameScene", { character: char });
+        });
+      }
     });
 
     this.btnContainer.add([btn, label]);
   }
 
   private renderAchievements() {
+    if (this.achText1) { this.achText1.destroy(); this.achText1 = null; }
+    if (this.achText2) { this.achText2.destroy(); this.achText2 = null; }
     const unlocked = Achievements.unlocked;
     if (unlocked.length === 0) return;
     const unlockedSet = new Set(unlocked);
@@ -191,10 +225,10 @@ export class CharacterSelectScene extends Phaser.Scene {
     for (const a of all) {
       if (unlockedSet.has(a.id)) lines.push(`🏆 ${a.name}`);
     }
-    this.add.text(W / 2, 730, `成就: ${unlocked.length}/${all.length}`, {
+    this.achText1 = this.add.text(W / 2, 730, `成就: ${unlocked.length}/${all.length}`, {
       fontSize: "14px", color: "#ff0", fontStyle: "bold",
     }).setOrigin(0.5);
-    this.add.text(W / 2, 748, lines.join("  "), {
+    this.achText2 = this.add.text(W / 2, 748, lines.join("  "), {
       fontSize: "11px", color: "#aaa",
     }).setOrigin(0.5);
   }

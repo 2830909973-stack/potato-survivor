@@ -84,16 +84,18 @@ export class ShopUI {
     if (!this.stats) return;
 
     const ownedWeaponIds = new Set(this.weapons.map(w => w.id));
-    const weaponItems = WEAPON_CONFIGS.filter(w => w.id !== "pistol" && !ownedWeaponIds.has(w.id)).map(w => {
+    const weaponItems = WEAPON_CONFIGS.filter(w => w.id !== "pistol").map(w => {
+      const existing = this.weapons.find(we => we.id === w.id);
       const rarity = pickRandomRarity();
       const rarityColor = rarity.color;
       const rarified = applyRarityToWeapon(w, rarity);
+      const isUpgrade = !!existing;
       return {
         id: w.id,
-        name: `[${rarity.name}] ${w.name}`,
-        desc: `伤害 ${rarified.damage} 射速 ${rarified.fireRate}ms 弹匣 ${rarified.ammoMax}`,
-        cost: rarified.cost,
-        rarityColor,
+        name: isUpgrade ? `${existing!.name} Lv.${existing!.level + 1}` : `[${rarity.name}] ${w.name}`,
+        desc: isUpgrade ? `升级! 伤害+15% 射速+8%` : `伤害 ${rarified.damage} 射速 ${rarified.fireRate}ms 弹匣 ${rarified.ammoMax}`,
+        cost: Math.round(rarified.cost * (isUpgrade ? existing!.level : 1)),
+        rarityColor: isUpgrade ? "#ffaa00" : rarityColor,
         type: "weapon" as const,
         weapon: rarified,
       };
@@ -125,7 +127,11 @@ export class ShopUI {
     const consumableItems = CONSUMABLES.map(c => ({ ...c, type: "consumable" as const }));
 
     const pool = [...weaponItems, ...modItems, ...powerItems, ...passiveItems, ...consumableItems];
-    const allItems = pool.sort(() => Math.random() - 0.5).slice(0, 5);
+    for (let i = pool.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [pool[i], pool[j]] = [pool[j], pool[i]];
+    }
+    const allItems = pool.slice(0, 5);
 
     allItems.forEach((item, i) => {
       const y = H / 2 - 150 + i * 75;
@@ -134,7 +140,8 @@ export class ShopUI {
       const isPower = item.type === "power";
       const isPassive = item.type === "item";
       const isConsumable = item.type === "consumable";
-      const weaponSlotsFull = isWeapon && this.weapons.length >= MAX_WEAPONS;
+      const ownedWeapon = isWeapon && this.weapons.some(w => w.id === item.id);
+      const weaponSlotsFull = isWeapon && !ownedWeapon && this.weapons.length >= MAX_WEAPONS;
       const powerSlotsFull = isPower && this.powers.filter(p => p !== null).length >= MAX_POWERS && !this.powers.some(p => p?.id === item.id);
       const canBuy = !weaponSlotsFull && !powerSlotsFull && this.stats!.materials >= item.cost;
       const btnColor = canBuy ? 0x335533 : 0x333333;

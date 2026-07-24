@@ -27,16 +27,19 @@ export class ProjectileManager {
     return b;
   }
 
-  fireBullet(x: number, y: number, angle: number, speed: number, damage: number, range: number, splashRadius?: number, penetrate?: number) {
-    const b = this.getBullet(this.bullets, x, y, "bullet");
-    if (!b) return;
+  fireBullet(x: number, y: number, angle: number, speed: number, damage: number, range: number, splashRadius?: number, penetrate?: number, texKey = "bullet"): Phaser.Physics.Arcade.Sprite | null {
+    const b = this.getBullet(this.bullets, x, y, texKey);
+    if (!b) return null;
+    if (texKey !== "bullet") b.setTexture(texKey);
     b.setVelocity(Math.cos(angle) * speed, Math.sin(angle) * speed);
     b.setData("damage", damage);
     b.setData("range", range);
     b.setData("originX", x);
     b.setData("originY", y);
+    b.setData("weaponId", null);
     if (splashRadius) b.setData("splashRadius", splashRadius);
     if (penetrate) b.setData("penetrate", penetrate);
+    return b;
   }
 
   doSplashDamage(
