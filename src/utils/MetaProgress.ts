@@ -23,7 +23,7 @@ export const META_UPGRADES: MetaUpgradeDef[] = [
   { id: "speed", name: "速度提升", desc: "移动速度 +5", maxLevel: 10, baseCost: 12, apply: (l, s) => { s.speed += l * 5; } },
   { id: "dmg", name: "武器精通", desc: "所有伤害 +5%", maxLevel: 10, baseCost: 20, apply: (l, s) => { /* applied via weapon multiplier in Player */ } },
   { id: "dodge", name: "闪避训练", desc: "闪避 +1%", maxLevel: 5, baseCost: 25, apply: (l, s) => { s.dodge += l * 0.01; } },
-  { id: "regen", name: "自愈", desc: "每秒回复 1HP", maxLevel: 1, baseCost: 50, apply: (l, s) => { if (l > 0) s.hpRegen = true; } },
+  { id: "regen", name: "自愈", desc: "每秒回复 3HP", maxLevel: 1, baseCost: 50, apply: (l, s) => { if (l > 0) s.hpRegen = true; } },
 ];
 
 export const CHAR_UNLOCK_REQUIREMENTS: Record<string, { name: string; desc: string }> = {

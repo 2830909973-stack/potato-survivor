@@ -37,6 +37,7 @@ export class EnemyManager {
     e.setData("bossCharging", false);
     e.setData("chargeTimer", 0);
     e.setData("chargerBurst", false);
+    e.setData("lastShot", 0);
     e.setData("healTimer", 0);
     e.setData("frozen", false);
     e.setData("frozenTimer", 0);

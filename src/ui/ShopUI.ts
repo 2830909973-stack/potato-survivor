@@ -84,7 +84,7 @@ export class ShopUI {
     if (!this.stats) return;
 
     const ownedWeaponIds = new Set(this.weapons.map(w => w.id));
-    const weaponItems = WEAPON_CONFIGS.filter(w => w.id !== "pistol").map(w => {
+    const weaponItems = WEAPON_CONFIGS.filter(w => true).map(w => {
       const existing = this.weapons.find(we => we.id === w.id);
       const rarity = pickRandomRarity();
       const rarityColor = rarity.color;
@@ -94,7 +94,7 @@ export class ShopUI {
         id: w.id,
         name: isUpgrade ? `${existing!.name} Lv.${existing!.level + 1}` : `[${rarity.name}] ${w.name}`,
         desc: isUpgrade ? `升级! 伤害+15% 射速+8%` : `伤害 ${rarified.damage} 射速 ${rarified.fireRate}ms 弹匣 ${rarified.ammoMax}`,
-        cost: Math.round(rarified.cost * (isUpgrade ? existing!.level : 1)),
+        cost: isUpgrade ? Math.round(rarified.cost * 0.6 * (existing!.level + 1)) : Math.round(rarified.cost),
         rarityColor: isUpgrade ? "#ffaa00" : rarityColor,
         type: "weapon" as const,
         weapon: rarified,

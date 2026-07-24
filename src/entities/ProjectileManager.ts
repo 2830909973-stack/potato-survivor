@@ -23,7 +23,7 @@ export class ProjectileManager {
     const b = group.get(x, y, key) as Phaser.Physics.Arcade.Sprite;
     if (!b) return null;
     b.setActive(true).setVisible(true);
-    b.body!.enable = true;
+    if (b.body) b.body.enable = true;
     return b;
   }
 

@@ -256,14 +256,18 @@ export class GameScene extends Phaser.Scene {
     this.bossPhase = true;
     this.waveTimer = 0;
     this.spawnRules = [];
+    const toRemove: Phaser.Physics.Arcade.Sprite[] = [];
     for (const enemy of this.enemyMgr.list) {
       if (!enemy.active || enemy.getData("boss")) continue;
+      toRemove.push(enemy);
+    }
+    for (const enemy of toRemove) {
       this.effects.deathEffect(enemy.x, enemy.y);
       const mult = enemy.getData("dropMult") as number || 1;
       this.spawnMaterialDrop(enemy.x, enemy.y, mult);
       this.enemyMgr.deactivateEnemy(enemy);
     }
-    this.enemyMgr.list = this.enemyMgr.list.filter(e => e.active);
+    this.enemyMgr.list = this.enemyMgr.list.filter(e => e.getData("boss"));
     this.hud.announce("消灭 Boss!");
   }
 
@@ -683,8 +687,8 @@ export class GameScene extends Phaser.Scene {
       const angle = Phaser.Math.Angle.Between(this.player.x, this.player.y, nearest.x, nearest.y);
       const startAngle = angle - (w.spread * (w.bulletCount - 1)) / 2 * Math.PI / 180;
 
-      const texKey = w.id === "laser" ? "bullet_laser" : w.id === "freeze" ? "bullet_freeze" : "bullet";
-      const isFreeze = w.id === "freeze";
+      const texKey = w.id === "laser" || w.id === "evolved_laser" ? "bullet_laser" : w.id === "freeze" || w.id === "evolved_freeze" ? "bullet_freeze" : "bullet";
+      const isFreeze = w.id === "freeze" || w.id === "evolved_freeze";
 
       for (let i = 0; i < w.bulletCount; i++) {
         const a = startAngle + w.spread * i * Math.PI / 180;

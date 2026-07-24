@@ -4,7 +4,7 @@ import { PlayerStats, Weapon, Power, W, H, MAX_POWERS } from "../types";
 export class HUD {
   private hpText: Phaser.GameObjects.Text;
   private matText: Phaser.GameObjects.Text;
-private weaponText: Phaser.GameObjects.Text;
+  private weaponText: Phaser.GameObjects.Text;
   private weapon2Text: Phaser.GameObjects.Text;
   private waveText: Phaser.GameObjects.Text;
   private timerText: Phaser.GameObjects.Text;

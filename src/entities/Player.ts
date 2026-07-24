@@ -32,9 +32,8 @@ export class Player {
   private regenTimer = 0;
   private speedBuffTimer = 0;
   private fireRateBuffTimer = 0;
+  private originalFireRate: number[] | null = null;
   private scene: Phaser.Scene;
-  private abilityFireRateMult = 1;
-  private abilitySpeedMult = 1;
   readonly grenadeCooldownDuration = 8000;
   abilityCooldownDuration: number;
 
@@ -108,6 +107,7 @@ export class Player {
   applyAdrenaline() {
     this.speedBuffTimer = 15000;
     this.fireRateBuffTimer = 15000;
+    this.originalFireRate = this.weapons.map(w => w.fireRate);
     for (const w of this.weapons) {
       w.fireRate = Math.round(w.fireRate * 0.8);
     }
@@ -126,8 +126,11 @@ export class Player {
       this.fireRateBuffTimer -= delta;
       if (this.fireRateBuffTimer <= 0) {
         this.fireRateBuffTimer = 0;
-        for (const w of this.weapons) {
-          w.fireRate = Math.round(w.fireRate / 0.8);
+        if (this.originalFireRate) {
+          for (let i = 0; i < this.weapons.length && i < this.originalFireRate.length; i++) {
+            this.weapons[i].fireRate = this.originalFireRate[i];
+          }
+          this.originalFireRate = null;
         }
       }
     }
