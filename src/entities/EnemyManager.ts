@@ -1,6 +1,6 @@
 import Phaser from "phaser";
 import { EnemyType, SpawnGroup, HIT_RANGE, W, H } from "../types";
-import { ENEMY_CONFIG, WAVE_CONFIGS, BOSS_DATA, randomEdgePos } from "../config";
+import { ENEMY_CONFIG, WAVE_CONFIGS, BOSS_DATA, randomEdgePos, BossStats } from "../config";
 
 export class EnemyManager {
   group: Phaser.Physics.Arcade.Group;
@@ -117,8 +117,19 @@ export class EnemyManager {
     let hpMult = cfg.hpMult;
 
     if (sg.boss) {
-      const bd = BOSS_DATA[wave];
-      if (!bd) return;
+      let bd = BOSS_DATA[wave];
+      if (!bd) {
+        const bossWave = Math.floor(wave / 5) * 5;
+        const baseBd = BOSS_DATA[30];
+        bd = {
+          name: `虚空领主 Lv.${wave}`,
+          hpMult: Math.round((baseBd?.hpMult ?? 100) * (1 + (wave - 30) * 0.15)),
+          speed: Math.min(80, (baseBd?.speed ?? 55) + (wave - 30) * 2),
+          scale: Math.min(6, (baseBd?.scale ?? 5) + (wave - 30) * 0.1),
+          tint: Phaser.Display.Color.HSLToColor((wave * 0.07) % 1, 0.8, 0.4).color,
+          dropMult: (baseBd?.dropMult ?? 50) + Math.floor((wave - 30) / 5) * 5,
+        };
+      }
       const e = this.spawnOne(eCfg, { ...sg, spdMult: 1, hpMult: bd.hpMult }, wave);
       if (e) {
         e.setTint(bd.tint);

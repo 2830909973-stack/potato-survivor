@@ -47,34 +47,41 @@ Duplicate a weapon in the shop to upgrade it (+15% damage, +8% fire rate, +bulle
 
 | Weapon | Type | Description |
 |---|---|---|
-| 手枪 (Pistol) | Ranged | Balanced starter, 3-round burst |
-| 霰弹枪 (Shotgun) | Ranged | 8 pellets, short range |
+| 手枪 (Pistol) | Ranged | Balanced starter |
+| 霰弹枪 (Shotgun) | Ranged | 5 pellets, short range |
 | 冲锋枪 (SMG) | Ranged | Fast fire rate, low damage |
 | 步枪 (Rifle) | Ranged | Long range, high damage |
-| 激光枪 (Laser) | Ranged | High fire rate, penetrates 3 enemies |
-| 冰冻枪 (Freeze) | Ranged | Slows enemies on hit |
+| 狙击枪 (Sniper) | Ranged | High damage, 1 penetrate |
+| 火箭筒 (Rocket) | Ranged | Splash damage 80 radius |
+| 消防斧 (Fire Axe) | Melee | Slow but heavy |
 | 砍刀 (Machete) | Melee | Fast melee, short range |
 | 撬棍 (Crowbar) | Melee | Wide swing, high damage |
+| 激光枪 (Laser) | Ranged | High fire rate, penetrates 3 enemies |
+| 冰冻枪 (Freeze) | Ranged | Slows enemies on hit |
 
 ### Evolutions
 
 Combine a weapon + shop item to create an upgraded version:
 
 | Recipe | Result |
-|---|---|
-| 手枪 + 消音器 | 无声手枪 |
-| 霰弹枪 + 红点瞄准 | 精确霰弹枪 |
-| 步枪 + 穿甲弹 | 狙击步枪 |
-| 撬棍 + 幸运草 | 幸运撬棍 |
-| 砍刀 + 折叠枪托 | 战术砍刀 |
-| 激光枪 + 咖啡 | 激光炮 |
-| 冰冻枪 + 幸运草 | 暴风雪 |
+|---|---|---|
+| 手枪 + 医疗包 | 医疗手枪 (Medical Pistol) — Heals on hit |
+| 霰弹枪 + 铁盾 | 爆炸护盾 (Blast Shield) — Splash damage |
+| 冲锋枪 + 咖啡 | 加特林 (Gatling) — Fast fire rate, 3 bullets |
+| 步枪 + 折叠枪托 | 突击步枪 (Assault Rifle) — Balanced upgrade |
+| 狙击枪 + 幸运草 | 死神之眼 (Death Eye) — Penetrates 3 enemies |
+| 火箭筒 + 铁盾 | 爆破护盾 (Bomb Shield) — Bigger splash |
+| 消防斧 + 跑鞋 | 旋风斩 (Whirlwind) — Wide range melee |
+| 撬棍 + 幸运草 | 幸运撬棍 (Lucky Crowbar) — Higher damage |
+| 砍刀 + 折叠枪托 | 战术砍刀 (Tactical Machete) — Fast melee |
+| 激光枪 + 咖啡 | 激光炮 (Laser Cannon) — Penetrates 5, 2 bullets |
+| 冰冻枪 + 幸运草 | 暴风雪 (Blizzard) — 3 bullets, splash slow |
 
 ### Items & Mods
 
-- **Items** — Permanent passives (coffee for fire rate, shield for armor, shoes for speed, etc.)
-- **Mods** — Weapon attachments (silencer, extended mag, red dot, etc.)
-- **Consumables** — Health packs, adrenaline, grenades
+- **Items** — Permanent passives (咖啡 fire rate +10%, 铁盾 armor +2, 跑鞋 speed +20, 幸运草 XP +15%, 折叠枪托 speed +15, 能量电池 laser ammo +50%, 冷却液 freeze fire rate +20%)
+- **Mods** — Weapon attachments (消音器 damage +15%, 扩容弹匣 ammo +50%, 红点瞄准 range +15% spread -30%, 稳定枪托 fire rate +10%, 穿甲弹 damage +10%, 快速换弹 reload -25%, 补偿器 spread -40%, 高倍镜 range +30% fire rate -10%, 空尖弹 damage +20% range -10%)
+- **Consumables** — Health packs, adrenaline (15s speed+fire rate +20%), grenades (3 per purchase)
 
 ### Powers
 
@@ -91,17 +98,17 @@ Unlockable abilities with cooldowns:
 
 ## Characters
 
-5 characters with unique passives and abilities. 2 locked — unlock by meeting in-game milestones:
+7 characters with unique passives and abilities. 3 default, 4 locked — unlock by meeting in-game milestones:
 
-| Character | Passive | Unlock |
-|---|---|---|
-| 土豆勇士 (Potato Warrior) | +10% HP | Default |
-| 游侠 (Ranger) | +10% speed | Default |
-| 机械师 (Mechanic) | +10% fire rate | Default |
-| 狙击手 (Sniper) | +1 crit per level | 100 kills |
-| 幸运者 (Lucky) | +5% dodge | 200 materials in one run |
-| 坦克 (Tank) | +1 armor per 5 levels | Reach wave 10 |
-| 狂战士 (Berserker) | +3% damage per kill | Reach wave 20 |
+| Character | Passive | Ability | Unlock |
+|---|---|---|---|
+| 雇佣兵 (Mercenary) | Damage +10% | 精准射击 (6s guaranteed crit) | Default |
+| 特种兵 (Specialist) | Reload -20% | 速射 (4s fire rate x2) | Default |
+| 消防员 (Fireman) | Armor +2 | 火焰盾 (3s invincible + burn) | Default |
+| 狙击手 (Sniper) | Range +50 | 锁定 (5s enemies take +50% dmg) | 100 kills |
+| 幸运儿 (Lucky) | +1 upgrade choice | 聚宝 (5s double drops) | 200 materials in one run |
+| 重装兵 (Tank) | Armor +1 | 铁壁 (5s armor +10) | Reach wave 10 |
+| 疯子 (Berserker) | +15% speed | 狂暴 (4s +80% fire rate +50% speed) | Reach wave 20 |
 
 ## Meta-Progression
 

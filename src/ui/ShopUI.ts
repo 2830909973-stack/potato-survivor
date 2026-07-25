@@ -1,6 +1,6 @@
 import Phaser from "phaser";
 import { PlayerStats, Weapon, W, H, MAX_WEAPONS, MAX_POWERS, Power, PowerConfig } from "../types";
-import { WEAPON_CONFIGS, MOD_CONFIGS, ITEMS, CONSUMABLES, POWER_CONFIGS, calcRerollCost, applyRarityToWeapon, pickRandomRarity } from "../config";
+import { WEAPON_CONFIGS, MOD_CONFIGS, ITEMS, CONSUMABLES, POWER_CONFIGS, EVOLUTIONS, calcRerollCost, applyRarityToWeapon, pickRandomRarity } from "../config";
 
 export interface ShopCallback {
   buyWeapon: (w: Weapon) => void;
@@ -160,6 +160,18 @@ export class ShopUI {
       const nameText = this.scene.add.text(W / 2 - 140, y - 10, item.name, { fontSize: "14px", color: nameColor, fontStyle: "bold" });
       const desc = this.scene.add.text(W / 2 - 190, y + 14, item.desc, { fontSize: "11px", color: "#aaa" });
       const costText = this.scene.add.text(W / 2 + 190, y, `${item.cost}💰`, { fontSize: "14px", color: canBuy ? "#0f8" : "#666" }).setOrigin(1, 0.5);
+
+      // Evolution hint
+      if (isPassive || isWeapon) {
+        const evoRecipe = EVOLUTIONS.find(r => {
+          if (isPassive) return r.itemId === item.id && this.weapons.some(w => w.id === r.weaponId);
+          return r.weaponId === item.id && this.ownedItems!.has(r.itemId);
+        });
+        if (evoRecipe) {
+          const evoHint = this.scene.add.text(W / 2 - 190, y + 30, `🔥 ${evoRecipe.resultName}`, { fontSize: "10px", color: "#ff8", fontStyle: "bold" });
+          children.push(evoHint);
+        }
+      }
 
       if (!canBuy && weaponSlotsFull) {
         const fullText = this.scene.add.text(W / 2 + 150, y + 14, "丢弃已有武器以购买", { fontSize: "10px", color: "#f84" }).setOrigin(1, 0.5);

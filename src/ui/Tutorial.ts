@@ -34,6 +34,7 @@ export function showTutorial(scene: Phaser.Scene, onDone: () => void) {
     "每 5 波出现 BOSS，击败后进入商店",
     "商店中可购买武器/改装/道具/异能",
     "重复购买武器可升级(伤害+射速+弹片)",
+    "购买道具+对应武器可触发进化!",
     "",
     "点击任意处开始",
   ];

@@ -73,6 +73,8 @@ export class CharacterSelectScene extends Phaser.Scene {
   private achText1: Phaser.GameObjects.Text | null = null;
   private achText2: Phaser.GameObjects.Text | null = null;
   private geneText!: Phaser.GameObjects.Text;
+  private endlessToggle!: Phaser.GameObjects.Text;
+  private endlessMode = false;
 
   constructor() {
     super("CharacterSelectScene");
@@ -82,6 +84,15 @@ export class CharacterSelectScene extends Phaser.Scene {
     this.add.rectangle(W / 2, H / 2, W, H, 0x1a1a2e);
     this.add.text(W / 2, 30, "选择角色", { fontSize: "28px", color: "#ff0", fontStyle: "bold" }).setOrigin(0.5);
     this.geneText = this.add.text(W - 10, 10, `基因: ${MetaProgress.genePoints}`, { fontSize: "14px", color: "#ff0" }).setOrigin(1, 0);
+
+    this.endlessMode = false;
+    this.endlessToggle = this.add.text(W - 10, 28, "无尽模式: 关", { fontSize: "13px", color: "#888", fontStyle: "bold" })
+      .setOrigin(1, 0).setInteractive({ useHandCursor: true });
+    this.endlessToggle.on("pointerdown", () => {
+      this.endlessMode = !this.endlessMode;
+      this.endlessToggle.setText(`无尽模式: ${this.endlessMode ? "开" : "关"}`);
+      this.endlessToggle.setColor(this.endlessMode ? "#f84" : "#888");
+    });
 
     this.previewContainer = this.add.container(0, 0);
     this.cardsContainer = this.add.container(0, 0);
@@ -203,10 +214,10 @@ const cardBg = this.add.rectangle(x, y, CARD_W, 120, 0x222244).setInteractive({ 
       const char = CHARACTERS[this.selectedIdx];
       if (!MetaProgress.isCharUnlocked(char.id)) return;
       if (hasSeenTutorial()) {
-        this.scene.start("GameScene", { character: char });
+        this.scene.start("GameScene", { character: char, endlessMode: this.endlessMode });
       } else {
         showTutorial(this, () => {
-          this.scene.start("GameScene", { character: char });
+          this.scene.start("GameScene", { character: char, endlessMode: this.endlessMode });
         });
       }
     });

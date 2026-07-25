@@ -1,5 +1,5 @@
 ﻿import Phaser from "phaser";
-import { Weapon, SpawnRule, W, H, PICKUP_RANGE, Power, MAX_POWERS, PowerConfig, Character } from "../types";
+import { Weapon, SpawnRule, W, H, PICKUP_RANGE, Power, MAX_POWERS, PowerConfig, Character, EnemyType, WaveConfig } from "../types";
 import { Settings } from "../utils/Settings";
 import { SettingsUI } from "../ui/SettingsUI";
 import { VictoryUI } from "../ui/VictoryUI";
@@ -47,6 +47,7 @@ export class GameScene extends Phaser.Scene {
   private obstacles: Phaser.Physics.Arcade.StaticGroup | null = null;
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
   private settingsUI!: SettingsUI;
+  private endlessMode = false;
 
   constructor() {
     super("GameScene");
@@ -64,6 +65,9 @@ export class GameScene extends Phaser.Scene {
     this.victoryUI = new VictoryUI(this);
     this.effects = new EffectsManager(this);
     this.settingsUI = new SettingsUI(this);
+
+    const sceneData = this.scene.settings.data as { character?: Character; endlessMode?: boolean } | undefined;
+    this.endlessMode = sceneData?.endlessMode ?? false;
 
     this.wave = 0;
     this.gameOver = false;
@@ -204,7 +208,20 @@ export class GameScene extends Phaser.Scene {
     this.spawnRules = [];
     this.player.refillAmmo();
 
-    const cfg = WAVE_CONFIGS[Math.min(this.wave - 1, WAVE_CONFIGS.length - 1)];
+    const maxDefinedWave = WAVE_CONFIGS.length;
+    let cfg: WaveConfig;
+    if (this.wave <= maxDefinedWave) {
+      cfg = WAVE_CONFIGS[this.wave - 1];
+    } else {
+      const base = WAVE_CONFIGS[maxDefinedWave - 1];
+      const extraMult = 1 + (this.wave - maxDefinedWave) * 0.1;
+      cfg = {
+        enemies: base.enemies.map(e => ({ ...e, count: Math.round(e.count * extraMult) })),
+        speedMult: base.speedMult * extraMult,
+        hpMult: base.hpMult * extraMult,
+        eliteChance: Math.min(0.5, (base.eliteChance ?? 0.2) + (this.wave - maxDefinedWave) * 0.02),
+      };
+    }
     const waveDuration = getWaveDuration(this.wave);
     const lastBatchTime = waveDuration - 2000;
 
@@ -221,6 +238,9 @@ export class GameScene extends Phaser.Scene {
 
     if (this.bossActive && BOSS_DATA[this.wave]) {
       this.spawnRules.push({ type: "tank", batchSize: 1, interval: 0, timer: Math.round(lastBatchTime * 0.5), remaining: 1, boss: true, dropMult: BOSS_DATA[this.wave].dropMult });
+    } else if (this.bossActive && this.wave > 30) {
+      const dynamicDropMult = 30 + Math.floor((this.wave - 30) / 5) * 5;
+      this.spawnRules.push({ type: "tank", batchSize: 1, interval: 0, timer: Math.round(lastBatchTime * 0.5), remaining: 1, boss: true, dropMult: dynamicDropMult });
     }
     if (this.player.ownedItems.has("medkit")) {
       this.player.heal(20);
@@ -347,9 +367,12 @@ export class GameScene extends Phaser.Scene {
 
   private onWaveClear() {
     if (this.gameOver) return;
-    if (this.wave >= 30) {
+    if (this.wave >= 30 && !this.endlessMode) {
       this.showVictory();
       return;
+    }
+    if (this.wave >= 30 && this.endlessMode) {
+      this.hud.announce(`无尽模式 · 第 ${this.wave} 波!`);
     }
     if (this.pendingLevelUps > 0) {
       this.showLevelUpCards();
@@ -647,6 +670,19 @@ export class GameScene extends Phaser.Scene {
     if (idx !== -1) this.enemyMgr.list.splice(idx, 1);
   }
 
+  private spawnMaterialDrop(x: number, y: number, mult: number) {
+    const value = Phaser.Math.Between(1, 3) * mult;
+    const drop = this.add.image(x, y, "material").setDepth(10);
+    drop.setData("value", Math.round(value));
+    this.dropList.push(drop);
+  }
+
+  private spawnXpDrop(x: number, y: number, xpAmount: number) {
+    const orb = this.add.image(x, y, "xp_orb").setDepth(10);
+    orb.setData("xp", xpAmount);
+    this.xpDropList.push(orb);
+  }
+
   private autoShoot(time: number) {
     const nearest = this.enemyMgr.getNearest(this.player.x, this.player.y);
     if (!nearest) return;
@@ -824,8 +860,10 @@ export class GameScene extends Phaser.Scene {
 
     const statsX = 240;
     const s = this.player.stats;
+    const charName = (this.scene.settings.data as { character?: { name?: string } } | undefined)?.character?.name ?? "";
+    const endlessTag = this.endlessMode ? "  [无尽模式]" : "";
     const statsLines = [
-      `Lv.${s.level}  波次 ${this.wave}  击杀 ${this.stats_kills}`,
+      `${charName}  Lv.${s.level}  波次 ${this.wave}${endlessTag}  击杀 ${this.stats_kills}`,
       `HP: ${s.hp}/${s.maxHp}  护甲: ${s.armor}  材料: ${s.materials}`,
       `移速: ${s.speed}  暴击: ${Math.round(s.critChance * 100)}%  闪避: ${Math.round(s.dodge * 100)}%`,
       `经验: ${s.xp}/${s.xpToNext}`,
@@ -862,6 +900,12 @@ export class GameScene extends Phaser.Scene {
       const itemText = this.add.text(statsX - 195, itemY + 20, `  ${ownedItems.join(" · ")}`, { fontSize: "12px", color: "#aaa" });
       this.pauseContainer.add([itemLabel, itemText]);
     }
+
+    const achY = Math.max(460, powerY + (ownedPower.length > 0 ? 20 + ownedPower.length * 22 : 0) + (ownedItems.length > 0 ? 40 : 0));
+    const achUnlocked = Achievements.unlocked;
+    const achTotal = Achievements.getAll().length;
+    const achText = this.add.text(statsX - 195, achY, `成就: ${achUnlocked.length}/${achTotal}`, { fontSize: "13px", color: "#ff0" });
+    this.pauseContainer.add([achText]);
 
     const btnX = 900;
     const resumeBtn = this.add.rectangle(btnX, 140, 200, 50, 0x44aa44).setInteractive({ useHandCursor: true }).setStrokeStyle(2, 0x66cc66);
