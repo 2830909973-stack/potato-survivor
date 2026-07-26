@@ -45,7 +45,7 @@ export class GameScene extends Phaser.Scene {
   private dropList: Phaser.GameObjects.Image[] = [];
   private debt = 0;
   private materialPool!: Phaser.GameObjects.Group;
-  private obstacles: Phaser.Physics.Arcade.StaticGroup | null = null;
+
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
   private settingsUI!: SettingsUI;
   private endlessMode = false;
@@ -108,31 +108,7 @@ export class GameScene extends Phaser.Scene {
     AudioManager.startBGM();
 
     this.materialPool = this.add.group({ classType: Phaser.GameObjects.Image, maxSize: 300 });
-    this.obstacles = this.physics.add.staticGroup();
-    for (let i = 0; i < 8; i++) {
-      const ox = Phaser.Math.Between(150, W - 150);
-      const oy = Phaser.Math.Between(150, H - 150);
-      const ow = Phaser.Math.Between(50, 90);
-      const oh = Phaser.Math.Between(50, 90);
-      const gfx = this.add.graphics();
-      gfx.fillStyle(0x555555, 0.6);
-      gfx.fillRect(ox - ow / 2, oy - oh / 2, ow, oh);
-      gfx.lineStyle(2, 0x777777);
-      gfx.strokeRect(ox - ow / 2, oy - oh / 2, ow, oh);
-      const zone = this.add.zone(ox, oy, ow, oh);
-      this.physics.add.existing(zone, true);
-      this.obstacles.add(zone);
-    }
-    this.physics.add.collider(this.player.sprite, this.obstacles);
-    this.physics.add.collider(this.enemyMgr.group, this.obstacles);
-    this.physics.add.collider(this.projectileMgr.bullets, this.obstacles, (_b) => {
-      const b = _b as Phaser.Physics.Arcade.Sprite;
-      this.projectileMgr.deactivate(b);
-    });
-    this.physics.add.collider(this.projectileMgr.enemyBullets, this.obstacles, (_b) => {
-      const b = _b as Phaser.Physics.Arcade.Sprite;
-      this.projectileMgr.deactivate(b);
-    });
+
 
     this.physics.add.overlap(
       this.projectileMgr.bullets,
@@ -468,7 +444,7 @@ export class GameScene extends Phaser.Scene {
     this.dropList.forEach(m => { if (m.active) m.setActive(false).setVisible(false); });
     this.dropList = [];
     this.pauseContainer.removeAll(true);
-    if (this.obstacles) this.obstacles.clear(true, true);
+
   }
 
   private showShop() {
