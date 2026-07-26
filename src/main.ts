@@ -19,6 +19,11 @@ const config: Phaser.Types.Core.GameConfig = {
       debug: false,
     },
   },
+  input: {
+    keyboard: {
+      capture: [37, 38, 39, 40, 65, 87, 83, 68],
+    },
+  },
   scene: [BootScene, MainMenuScene, CharacterSelectScene, GameScene, AchievementScene, UpgradeScene, SettingsScene],
   scale: {
     mode: Phaser.Scale.FIT,

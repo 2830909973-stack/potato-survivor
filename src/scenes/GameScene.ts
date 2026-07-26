@@ -137,12 +137,14 @@ export class GameScene extends Phaser.Scene {
 
   private showControlsHint() {
     const b = Settings.getAllBindings();
-    const hint = this.add.text(W / 2, H - 45, `${b.switch} 切枪  ${b.reload} 换弹  ${b.grenade} 手雷  ${b.power1}/${b.power2} 异能  ${b.ability} 技能 ${b.pause} 暂停`, {
-      fontSize: "12px", color: "#fff", fontStyle: "bold",
-      stroke: "#000", strokeThickness: 3,
-    }).setOrigin(0.5).setDepth(200);
+    const hint = this.add.text(W / 2, H - 45,
+      `WASD/方向键 移动  ${b.switch} 切枪  ${b.grenade} 手雷  ${b.power1}/${b.power2} 异能  ${b.ability} 技能 ${b.pause} 暂停`,
+      {
+        fontSize: "12px", color: "#fff", fontStyle: "bold",
+        stroke: "#000", strokeThickness: 3,
+      }).setOrigin(0.5).setDepth(200);
     this.tweens.add({
-      targets: hint, alpha: 0, delay: 4000, duration: 1000,
+      targets: hint, alpha: 0, delay: 5000, duration: 1000,
       onComplete: () => hint.destroy(),
     });
   }
@@ -821,6 +823,7 @@ export class GameScene extends Phaser.Scene {
     this.wasdKeys.W = kb.addKey(KC.W);
     this.wasdKeys.S = kb.addKey(KC.S);
     this.wasdKeys.D = kb.addKey(KC.D);
+    kb.addCapture([KC.LEFT, KC.RIGHT, KC.UP, KC.DOWN, KC.A, KC.W, KC.S, KC.D]);
   }
 
   private pauseContainer!: Phaser.GameObjects.Container;
