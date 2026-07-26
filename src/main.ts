@@ -1,8 +1,11 @@
-import Phaser from "phaser";
+﻿import Phaser from "phaser";
 import { BootScene } from "./scenes/BootScene";
 import { GameScene } from "./scenes/GameScene";
 import { CharacterSelectScene } from "./scenes/CharacterSelectScene";
-import { TitleScene } from "./scenes/TitleScene";
+import { MainMenuScene } from "./scenes/MainMenuScene";
+import { AchievementScene } from "./scenes/AchievementScene";
+import { UpgradeScene } from "./scenes/UpgradeScene";
+import { SettingsScene } from "./scenes/SettingsScene";
 
 const config: Phaser.Types.Core.GameConfig = {
   type: Phaser.AUTO,
@@ -16,7 +19,7 @@ const config: Phaser.Types.Core.GameConfig = {
       debug: false,
     },
   },
-  scene: [BootScene, TitleScene, CharacterSelectScene, GameScene],
+  scene: [BootScene, MainMenuScene, CharacterSelectScene, GameScene, AchievementScene, UpgradeScene, SettingsScene],
   scale: {
     mode: Phaser.Scale.FIT,
     autoCenter: Phaser.Scale.CENTER_BOTH,

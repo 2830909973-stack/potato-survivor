@@ -26,6 +26,12 @@ export class LevelUpUI {
     this.visible = false;
   }
 
+  destroy() {
+    this.container.removeAll(true);
+    this.container.destroy();
+    this.visible = false;
+  }
+
   private render(
     stats: PlayerStats, weapons: Weapon[], wave: number, charId: string,
     onSelect: (upgrade: BodyPartUpgrade) => void

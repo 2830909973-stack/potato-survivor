@@ -8,6 +8,13 @@ export class EffectsManager {
     this.scene = scene;
   }
 
+  destroy() {
+    if (this.deathEmitter) {
+      this.deathEmitter.destroy();
+      this.deathEmitter = null;
+    }
+  }
+
   damageNumber(x: number, y: number, amount: number, isCrit: boolean) {
     const color = isCrit ? "#ff0" : "#fff";
     const size = isCrit ? "18px" : "14px";
@@ -36,7 +43,7 @@ export class EffectsManager {
   }
 
   flashDamage(obj: Phaser.GameObjects.Sprite) {
-    if (!this.scene.isActive() || !obj.active) return;
+    if (!obj.active) return;
     obj.setTint(0xff0000);
     this.scene.time.delayedCall(100, () => {
       if (obj.active) obj.clearTint();

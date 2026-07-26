@@ -1,4 +1,5 @@
 import { PlayerStats } from "../types";
+import { safeGetItem, safeSetItem } from "./Storage";
 
 const STORAGE_KEY = "potato_meta";
 
@@ -46,18 +47,18 @@ function defaultState(): MetaState {
 }
 
 function load(): MetaState {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) {
+  const raw = safeGetItem(STORAGE_KEY);
+  if (raw) {
+    try {
       const data = JSON.parse(raw) as MetaState;
       return { ...defaultState(), ...data };
-    }
-  } catch { }
+    } catch { }
+  }
   return defaultState();
 }
 
 function save(state: MetaState) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  safeSetItem(STORAGE_KEY, JSON.stringify(state));
 }
 
 export class MetaProgress {

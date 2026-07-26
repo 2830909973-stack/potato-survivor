@@ -1,6 +1,6 @@
 ﻿import Phaser from "phaser";
 import { Weapon, SpawnRule, W, H, PICKUP_RANGE, Power, MAX_POWERS, PowerConfig, Character, EnemyType, WaveConfig } from "../types";
-import { Settings } from "../utils/Settings";
+import { Settings, DEFAULT_KEY_BINDINGS } from "../utils/Settings";
 import { SettingsUI } from "../ui/SettingsUI";
 import { VictoryUI } from "../ui/VictoryUI";
 import { WAVE_CONFIGS, getWaveDuration, calcRerollCost, ITEMS, XP_PER_KILL, BOSS_DATA, CONSUMABLES, EVOLUTIONS, getBiome } from "../config";
@@ -44,6 +44,8 @@ export class GameScene extends Phaser.Scene {
   private stats_materialsEarned = 0;
   private dropList: Phaser.GameObjects.Image[] = [];
   private xpDropList: Phaser.GameObjects.Image[] = [];
+  private materialPool!: Phaser.GameObjects.Group;
+  private xpPool!: Phaser.GameObjects.Group;
   private obstacles: Phaser.Physics.Arcade.StaticGroup | null = null;
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
   private settingsUI!: SettingsUI;
@@ -95,8 +97,11 @@ export class GameScene extends Phaser.Scene {
     this.setupWASD();
     this.setupKeys();
 
+    AudioManager.init();
     AudioManager.startBGM();
 
+    this.materialPool = this.add.group({ classType: Phaser.GameObjects.Image, maxSize: 300 });
+    this.xpPool = this.add.group({ classType: Phaser.GameObjects.Image, maxSize: 300 });
     this.obstacles = this.physics.add.staticGroup();
     for (let i = 0; i < 8; i++) {
       const ox = Phaser.Math.Between(150, W - 150);
@@ -123,13 +128,22 @@ export class GameScene extends Phaser.Scene {
       this.projectileMgr.deactivate(b);
     });
 
+    this.physics.add.overlap(
+      this.projectileMgr.bullets,
+      this.enemyMgr.group,
+      (_b, _e) => {
+        this.onBulletHit(_b as Phaser.Physics.Arcade.Sprite, _e as Phaser.Physics.Arcade.Sprite);
+      }
+    );
+
     this.showControlsHint();
     this.startNextWave();
   }
 
   private showControlsHint() {
-    const hint = this.add.text(W / 2, H - 40, "Q 切枪  R 换弹  G 手雷  1/2 异能  F 技能 ESC 暂停", {
-      fontSize: "13px", color: "#fff", fontStyle: "bold",
+    const b = Settings.getAllBindings();
+    const hint = this.add.text(W / 2, H - 45, `${b.switch} 切枪  ${b.reload} 换弹  ${b.grenade} 手雷  ${b.power1}/${b.power2} 异能  ${b.ability} 技能 ${b.pause} 暂停`, {
+      fontSize: "12px", color: "#fff", fontStyle: "bold",
       stroke: "#000", strokeThickness: 3,
     }).setOrigin(0.5).setDepth(200);
     this.tweens.add({
@@ -160,7 +174,6 @@ export class GameScene extends Phaser.Scene {
     this.enemyMgr.moveAllToward(this.player.x, this.player.y, delta);
     this.enemyMgr.rangedShoot(time, this.projectileMgr.enemyBullets, this.player.x, this.player.y);
 
-    this.projectileMgr.checkHitsAgainst(this.enemyMgr.list, (b, e) => this.onBulletHit(b, e));
     this.projectileMgr.checkEnemyHits(this.player.x, this.player.y, time, this.player.iFrameTimer, (b) => this.onEnemyBulletHit(b));
     this.projectileMgr.checkPlayerContact(this.enemyMgr.list, this.player.x, this.player.y, time, this.player.iFrameTimer, (e) => this.onPlayerContact(e));
     this.projectileMgr.cleanupOffscreen();
@@ -198,7 +211,18 @@ export class GameScene extends Phaser.Scene {
 
     const w = this.player.activeWeapon;
     const isReloading = w ? w.reloading : false;
-    this.hud.update(this.player.stats, this.player.weapons, this.player.activeWeaponIdx, isReloading, this.wave, this.waveTimer, this.bossPhase, this.player.grenadeCount, this.player.grenadeCooldown, this.enemyMgr.count, getWaveDuration(this.wave), this.player.abilityCooldown, this.player.powers, this.player.powerCooldowns, this.player.powerActive);
+    const buffs: { label: string; color: number }[] = [];
+    if (this.player.abilityActive) {
+      const abilityLabels: Record<string, string> = {
+        merc: "精准射击", spec: "速射", sniper: "锁定",
+        fireman: "火焰盾", lucky: "聚宝", tank: "铁壁", berserker: "狂暴",
+      };
+      buffs.push({ label: abilityLabels[this.player.charId] || "技能", color: 0xaa44ff });
+    }
+    if (this.player.invincible) buffs.push({ label: "无敌", color: 0xffaa00 });
+    if (this.player.speedBuffTimer > 0) buffs.push({ label: "加速", color: 0x44aaff });
+    if (this.player.fireRateBuffTimer > 0) buffs.push({ label: "速射", color: 0xff6644 });
+    this.hud.update(this.player.stats, this.player.weapons, this.player.activeWeaponIdx, isReloading, this.wave, this.waveTimer, this.bossPhase, this.player.grenadeCount, this.player.grenadeCooldown, this.enemyMgr.count, getWaveDuration(this.wave), this.player.abilityCooldown, this.player.powers, this.player.powerCooldowns, this.player.powerActive, buffs);
   }
 
   private startNextWave() {
@@ -316,7 +340,7 @@ export class GameScene extends Phaser.Scene {
     let total = 0;
     for (const m of this.dropList) {
       total += m.getData("value") as number;
-      m.destroy();
+      m.setActive(false).setVisible(false);
     }
     this.dropList = [];
     if (total > 0) {
@@ -334,7 +358,7 @@ export class GameScene extends Phaser.Scene {
     let totalXp = 0;
     for (const orb of this.xpDropList) {
       totalXp += orb.getData("xp") as number;
-      orb.destroy();
+      orb.setActive(false).setVisible(false);
     }
     this.xpDropList = [];
     if (totalXp > 0) {
@@ -349,8 +373,15 @@ export class GameScene extends Phaser.Scene {
     const idx = this.player.weapons.findIndex(w => w.id === recipe.weaponId);
     if (idx === -1) return;
     const oldW = this.player.weapons[idx];
+    const base = WEAPON_CONFIGS.find(w => w.id === recipe.weaponId);
+    const dmgMult = base ? oldW.damage / base.damage : 1;
+    const frMult = base ? base.fireRate / oldW.fireRate : 1;
     const evolved: Weapon = {
       ...recipe.result,
+      damage: Math.round(recipe.result.damage * dmgMult),
+      fireRate: Math.round(recipe.result.fireRate / frMult),
+      bulletSpeed: recipe.result.bulletSpeed ? Math.round(recipe.result.bulletSpeed * dmgMult) : 0,
+      range: Math.round(recipe.result.range * (base ? oldW.range / base.range : 1)),
       level: oldW.level,
       lastFired: 0,
       ammo: recipe.result.ammoMax,
@@ -418,15 +449,21 @@ export class GameScene extends Phaser.Scene {
   }
 
   private cleanUpAndExit() {
-    this.shopUI.hide();
-    this.gameOverUI = null!;
-    this.victoryUI = null!;
+    this.shopUI.destroy();
+    this.levelUpUI.destroy();
+    this.gameOverUI.destroy();
+    this.victoryUI.destroy();
+    this.settingsUI.hide();
+    this.hud.destroy();
+    this.effects.destroy();
     this.enemyMgr.clearAll();
     this.projectileMgr.clearAll();
-    this.dropList.forEach(m => m.destroy());
+    this.dropList.forEach(m => { if (m.active) m.setActive(false).setVisible(false); });
     this.dropList = [];
-    this.xpDropList.forEach(o => o.destroy());
+    this.xpDropList.forEach(o => { if (o.active) o.setActive(false).setVisible(false); });
     this.xpDropList = [];
+    this.pauseContainer.removeAll(true);
+    if (this.obstacles) this.obstacles.clear(true, true);
   }
 
   private showShop() {
@@ -516,6 +553,10 @@ export class GameScene extends Phaser.Scene {
 
   private showLevelUpCards() {
     AudioManager.levelUp();
+    this.cameras.main.flash(400, 255, 215, 0);
+    this.hud.announce("升级!");
+    const ring = this.add.circle(this.player.x, this.player.y, 20, 0xffd700, 0.4).setDepth(35);
+    this.tweens.add({ targets: ring, scaleX: 5, scaleY: 5, alpha: 0, duration: 500, onComplete: () => ring.destroy() });
     this.levelingUp = true;
     this.physics.pause();
     this.levelUpUI.show(
@@ -546,7 +587,20 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
-  private onBulletHit(b: Phaser.Physics.Arcade.Sprite, e: Phaser.Physics.Arcade.Sprite): boolean | void {
+  private onBulletHit(b: Phaser.Physics.Arcade.Sprite, e: Phaser.Physics.Arcade.Sprite): void {
+    if (e.getData("controlled")) return;
+
+    const penetrate = b.getData("penetrate") as number | undefined;
+    if (penetrate !== undefined) {
+      let hitSet: Set<Phaser.Physics.Arcade.Sprite> = b.getData("hitSet");
+      if (!hitSet) {
+        hitSet = new Set();
+        b.setData("hitSet", hitSet);
+      }
+      if (hitSet.has(e)) return;
+      hitSet.add(e);
+    }
+
     let dmg = b.getData("damage") as number;
     const range = b.getData("range") as number;
     if (range > 0) {
@@ -577,7 +631,6 @@ export class GameScene extends Phaser.Scene {
       e.setTint(0x88ddff);
     }
 
-    const penetrate = b.getData("penetrate") as number | undefined;
     this.effects.damageNumber(e.x, e.y, dmg, isCrit);
     AudioManager.hit();
     const hp = (e.getData("hp") as number) - dmg;
@@ -590,9 +643,9 @@ export class GameScene extends Phaser.Scene {
       e.setVelocity(Math.cos(angle) * 200, Math.sin(angle) * 200);
       this.time.delayedCall(80, () => { if (e.active) e.setVelocity(0, 0); });
     }
-    if (penetrate && penetrate > 0) {
+    if (penetrate !== undefined && penetrate > 0) {
       b.setData("penetrate", penetrate - 1);
-      return false;
+      return;
     }
     this.projectileMgr.deactivate(b);
   }
@@ -672,13 +725,17 @@ export class GameScene extends Phaser.Scene {
 
   private spawnMaterialDrop(x: number, y: number, mult: number) {
     const value = Phaser.Math.Between(1, 3) * mult;
-    const drop = this.add.image(x, y, "material").setDepth(10);
+    const drop = this.materialPool.get(x, y, "material") as Phaser.GameObjects.Image | null;
+    if (!drop) return;
+    drop.setDepth(10);
     drop.setData("value", Math.round(value));
     this.dropList.push(drop);
   }
 
   private spawnXpDrop(x: number, y: number, xpAmount: number) {
-    const orb = this.add.image(x, y, "xp_orb").setDepth(10);
+    const orb = this.xpPool.get(x, y, "xp_orb") as Phaser.GameObjects.Image | null;
+    if (!orb) return;
+    orb.setDepth(10);
     orb.setData("xp", xpAmount);
     this.xpDropList.push(orb);
   }
@@ -687,58 +744,57 @@ export class GameScene extends Phaser.Scene {
     const nearest = this.enemyMgr.getNearest(this.player.x, this.player.y);
     if (!nearest) return;
 
-    for (const w of this.player.weapons) {
-      if (w.reloading) continue;
-      if (time - w.lastFired < w.fireRate) continue;
+    const w = this.player.activeWeapon;
+    if (!w) return;
+    if (w.reloading) return;
+    if (time - w.lastFired < w.fireRate) return;
 
-      const distToTarget = Phaser.Math.Distance.Between(this.player.x, this.player.y, nearest.x, nearest.y);
-      if (distToTarget > w.range) continue;
+    const distToTarget = Phaser.Math.Distance.Between(this.player.x, this.player.y, nearest.x, nearest.y);
+    if (distToTarget > w.range) return;
 
-      if (w.weaponType === "melee") {
-        w.lastFired = time;
-        const meleeDmg = Math.round(w.damage * this.player.abilityDmgMult);
-        const nearby = this.enemyMgr.getEnemiesInRange(this.player.x, this.player.y, w.range);
-        for (const e of nearby) {
-          const hp = (e.getData("hp") as number) - meleeDmg;
-          e.setData("hp", hp);
-          this.effects.damageNumber(e.x, e.y, meleeDmg, false);
-          if (hp <= 0) this.onEnemyKilled(e);
-          else this.effects.flashDamage(e);
-        }
-        if (nearby.length > 0) {
-          this.effects.deathEffect(nearest.x, nearest.y);
-          this.shakeScreen(60, 0.003);
-        }
-        continue;
-      }
-
-      if (w.ammo <= 0) {
-        this.player.startReload(w);
-        continue;
-      }
-
+    if (w.weaponType === "melee") {
+      const nearby = this.enemyMgr.getEnemiesInRange(this.player.x, this.player.y, w.range);
+      if (nearby.length === 0) return;
       w.lastFired = time;
-      w.ammo--;
-
-      const angle = Phaser.Math.Angle.Between(this.player.x, this.player.y, nearest.x, nearest.y);
-      const startAngle = angle - (w.spread * (w.bulletCount - 1)) / 2 * Math.PI / 180;
-
-      const texKey = w.id === "laser" || w.id === "evolved_laser" ? "bullet_laser" : w.id === "freeze" || w.id === "evolved_freeze" ? "bullet_freeze" : "bullet";
-      const isFreeze = w.id === "freeze" || w.id === "evolved_freeze";
-
-      for (let i = 0; i < w.bulletCount; i++) {
-        const a = startAngle + w.spread * i * Math.PI / 180;
-        const bullet = this.projectileMgr.fireBullet(this.player.x, this.player.y, a, w.bulletSpeed, w.damage, w.range, w.splashRadius, w.penetrate, texKey);
-        if (bullet && isFreeze) bullet.setData("weaponId", "freeze");
+      const meleeDmg = Math.round(w.damage * this.player.abilityDmgMult);
+      for (const e of nearby) {
+        const hp = (e.getData("hp") as number) - meleeDmg;
+        e.setData("hp", hp);
+        this.effects.damageNumber(e.x, e.y, meleeDmg, false);
+        if (hp <= 0) this.onEnemyKilled(e);
+        else this.effects.flashDamage(e);
       }
+      this.effects.deathEffect(nearby[0].x, nearby[0].y);
+      this.shakeScreen(60, 0.003);
+      return;
+    }
 
-      AudioManager.shoot();
-      const muzzle = this.add.circle(this.player.x, this.player.y, 8, 0xffff88, 1).setDepth(40);
-      this.tweens.add({ targets: muzzle, alpha: 0, scaleX: 2, scaleY: 2, duration: 120, onComplete: () => muzzle.destroy() });
+    if (w.ammo <= 0) {
+      this.player.startReload(w);
+      return;
+    }
 
-      if (w.ammo <= 0) {
-        this.player.startReload(w);
-      }
+    w.lastFired = time;
+    w.ammo--;
+
+    const angle = Phaser.Math.Angle.Between(this.player.x, this.player.y, nearest.x, nearest.y);
+    const startAngle = angle - (w.spread * (w.bulletCount - 1)) / 2 * Math.PI / 180;
+
+    const texKey = w.id === "laser" || w.id === "evolved_laser" ? "bullet_laser" : w.id === "freeze" || w.id === "evolved_freeze" ? "bullet_freeze" : "bullet";
+    const isFreeze = w.id === "freeze" || w.id === "evolved_freeze";
+
+    for (let i = 0; i < w.bulletCount; i++) {
+      const a = startAngle + w.spread * i * Math.PI / 180;
+      const bullet = this.projectileMgr.fireBullet(this.player.x, this.player.y, a, w.bulletSpeed, w.damage, w.range, w.splashRadius, w.penetrate, texKey);
+      if (bullet && isFreeze) bullet.setData("weaponId", "freeze");
+    }
+
+    AudioManager.shoot();
+    const muzzle = this.add.circle(this.player.x, this.player.y, 8, 0xffff88, 1).setDepth(40);
+    this.tweens.add({ targets: muzzle, alpha: 0, scaleX: 2, scaleY: 2, duration: 120, onComplete: () => muzzle.destroy() });
+
+    if (w.ammo <= 0) {
+      this.player.startReload(w);
     }
   }
 
@@ -780,7 +836,7 @@ export class GameScene extends Phaser.Scene {
           targets: text, y: text.y - 25, alpha: 0, duration: fontSize > 10 ? 600 : 400,
           onComplete: () => text.destroy(),
         });
-        obj.destroy();
+        obj.setActive(false).setVisible(false);
         list.splice(i, 1);
       } else if (d < magnetRange) {
         obj.x += (this.player.x - obj.x) * pullSpeed;
@@ -943,22 +999,42 @@ export class GameScene extends Phaser.Scene {
 
   private setupKeys() {
     const kb = this.input.keyboard!;
-    const escKey = kb.addKey(Phaser.Input.Keyboard.KeyCodes.ESC);
-    const qKey = kb.addKey(Phaser.Input.Keyboard.KeyCodes.Q);
-    const rKey = kb.addKey(Phaser.Input.Keyboard.KeyCodes.R);
-    const gKey = kb.addKey(Phaser.Input.Keyboard.KeyCodes.G);
-    const fKey = kb.addKey(Phaser.Input.Keyboard.KeyCodes.F);
+    const KC = Phaser.Input.Keyboard.KeyCodes;
+    const keyNameToCode = (name: string): number => {
+      const map: Record<string, number> = {
+        A: KC.A, B: KC.B, C: KC.C, D: KC.D, E: KC.E, F: KC.F, G: KC.G, H: KC.H,
+        I: KC.I, J: KC.J, K: KC.K, L: KC.L, M: KC.M, N: KC.N, O: KC.O, P: KC.P,
+        Q: KC.Q, R: KC.R, S: KC.S, T: KC.T, U: KC.U, V: KC.V, W: KC.W, X: KC.X,
+        Y: KC.Y, Z: KC.Z,
+        ONE: KC.ONE, TWO: KC.TWO, THREE: KC.THREE, FOUR: KC.FOUR,
+        FIVE: KC.FIVE, SIX: KC.SIX, SEVEN: KC.SEVEN, EIGHT: KC.EIGHT,
+        NINE: KC.NINE, ZERO: KC.ZERO,
+        SPACE: KC.SPACE, SHIFT: KC.SHIFT, CTRL: KC.CTRL, ALT: KC.ALT,
+        TAB: KC.TAB, ENTER: KC.ENTER, ESC: KC.ESC,
+        LEFT: KC.LEFT, RIGHT: KC.RIGHT, UP: KC.UP, DOWN: KC.DOWN,
+      };
+      return map[name] ?? KC.ESC;
+    };
 
-    escKey.on("down", () => this.togglePause());
+    const bindings = Settings.getAllBindings();
 
-    qKey.on("down", () => this.player.switchWeapon());
-    rKey.on("down", () => {
+    const togglePauseKey = kb.addKey(keyNameToCode(bindings.pause));
+    const switchKey = kb.addKey(keyNameToCode(bindings.switch));
+    const reloadKey = kb.addKey(keyNameToCode(bindings.reload));
+    const grenadeKey = kb.addKey(keyNameToCode(bindings.grenade));
+    const abilityKey = kb.addKey(keyNameToCode(bindings.ability));
+    const power1Key = kb.addKey(keyNameToCode(bindings.power1));
+    const power2Key = kb.addKey(keyNameToCode(bindings.power2));
+
+    togglePauseKey.on("down", () => this.togglePause());
+    switchKey.on("down", () => this.player.switchWeapon());
+    reloadKey.on("down", () => {
       const w = this.player.activeWeapon;
       if (w && !w.reloading && w.weaponType === "ranged" && w.ammo < w.ammoMax) {
         this.player.startReload(w);
       }
     });
-    gKey.on("down", () => {
+    grenadeKey.on("down", () => {
       if (this.player.grenadeCount <= 0 || this.player.grenadeCooldown > 0) return;
       this.player.grenadeCount--;
       this.player.grenadeCooldown = this.player.grenadeCooldownDuration;
@@ -987,11 +1063,9 @@ export class GameScene extends Phaser.Scene {
         },
       });
     });
-    fKey.on("down", () => this.useAbility());
-    const oneKey = kb.addKey(Phaser.Input.Keyboard.KeyCodes.ONE);
-    const twoKey = kb.addKey(Phaser.Input.Keyboard.KeyCodes.TWO);
-    oneKey.on("down", () => this.usePower(0));
-    twoKey.on("down", () => this.usePower(1));
+    abilityKey.on("down", () => this.useAbility());
+    power1Key.on("down", () => this.usePower(0));
+    power2Key.on("down", () => this.usePower(1));
   }
 
   private powerAuraTimers = [0, 0];

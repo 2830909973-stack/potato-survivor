@@ -1,5 +1,11 @@
 # 🥔 土豆幸存者 (Potato Survivor)
 
+<p align="center">
+  <a href="https://2830909973-stack.github.io/potato-survivor/">
+    <img src="https://img.shields.io/badge/🎮-在线试玩-ffcc00?style=for-the-badge" alt="Play Now" />
+  </a>
+</p>
+
 A 2D top-down zombie survival game built with **Phaser 3 + TypeScript + Vite 5**.
 
 You are a potato fighting off endless waves of zombies. Buy weapons, collect materials, trigger evolutions, defeat bosses, and survive as long as you can.
@@ -160,3 +166,15 @@ src/
 - [Phaser 3](https://phaser.io/) — Game framework
 - [TypeScript](https://www.typescriptlang.org/) — Language
 - [Vite 5](https://vitejs.dev/) — Build tool
+
+## Deployment
+
+Pushed to `main` → GitHub Actions automatically builds and deploys to GitHub Pages.
+
+**Manual deploy:**
+```bash
+npm run build
+npx serve dist  # preview locally
+```
+
+> In GitHub repo: Settings → Pages → Source → **GitHub Actions**

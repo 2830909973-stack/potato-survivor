@@ -2,6 +2,7 @@ import Phaser from "phaser";
 import { PlayerStats, Weapon, Character, W, H, HIT_RANGE, MAX_WEAPONS, Power, MAX_POWERS, PowerConfig } from "../types";
 import { BASE_STATS, WEAPON_CONFIGS } from "../config";
 import { MetaProgress } from "../utils/MetaProgress";
+import { AudioManager } from "../utils/AudioManager";
 
 export class Player {
   sprite: Phaser.Physics.Arcade.Sprite;
@@ -30,8 +31,8 @@ export class Player {
   powerOriginalDodge = 0;
 
   private regenTimer = 0;
-  private speedBuffTimer = 0;
-  private fireRateBuffTimer = 0;
+  speedBuffTimer = 0;
+  fireRateBuffTimer = 0;
   private originalFireRate: number[] | null = null;
   private scene: Phaser.Scene;
   readonly grenadeCooldownDuration = 8000;
@@ -186,6 +187,7 @@ export class Player {
   switchWeapon() {
     if (this.weapons.length < 2) return;
     this.activeWeaponIdx = this.activeWeaponIdx === 0 ? 1 : 0;
+    AudioManager.switchWeapon();
     const w = this.activeWeapon;
     if (w && w.ammo <= 0 && w.weaponType === "ranged") {
       this.startReload(w);
@@ -282,7 +284,6 @@ export class Player {
   }
 
   flashDamage() {
-    if (!this.scene.isActive()) return;
     this.sprite.setTint(0xff0000);
     this.scene.time.delayedCall(100, () => {
       if (this.sprite.active) this.sprite.clearTint();
@@ -330,7 +331,6 @@ export class Player {
   }
 
   private deactivateAbility() {
-    if (!this.scene.isActive()) return;
     this.abilityActive = false;
     this.abilityBonusCrit = false;
     this.abilityBonusDrops = false;

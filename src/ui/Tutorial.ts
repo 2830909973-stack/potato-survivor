@@ -39,7 +39,7 @@ export function showTutorial(scene: Phaser.Scene, onDone: () => void) {
     "点击任意处开始",
   ];
 
-  const text = scene.add.text(W / 2, H / 2 - 200, lines.join("\n"), {
+  const text = scene.add.text(W / 2, H / 2 - 40, lines.join("\n"), {
     fontSize: "13px",
     color: "#ccc",
     align: "center",

@@ -1,4 +1,4 @@
-export interface Achievement {
+﻿export interface Achievement {
   id: string;
   name: string;
   desc: string;
@@ -31,14 +31,14 @@ const ALL: Achievement[] = [
   { id: "tank_win", name: "钢铁意志", desc: "用重装兵通关", check: c => c.charId === "tank" && c.won },
 ];
 
+import { safeGetItem, safeSetItem } from "./Storage";
+
 const STORAGE_KEY = "potato_achievements";
 
 export class Achievements {
   static get unlocked(): string[] {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      return raw ? JSON.parse(raw) : [];
-    } catch { return []; }
+    const raw = safeGetItem(STORAGE_KEY);
+    return raw ? JSON.parse(raw) : [];
   }
 
   static isUnlocked(id: string): boolean {
@@ -56,7 +56,7 @@ export class Achievements {
     }
     if (newly.length > 0) {
       const merged = [...already, ...newly];
-      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(merged)); } catch {}
+      safeSetItem(STORAGE_KEY, JSON.stringify(merged));
     }
     return newly;
   }

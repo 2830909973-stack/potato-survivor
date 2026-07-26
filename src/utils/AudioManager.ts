@@ -6,6 +6,13 @@ export class AudioManager {
   private static bgmInterval: ReturnType<typeof setInterval> | null = null;
   private static bgmGain: GainNode | null = null;
   private static currentBgmVolume = 0.5;
+  private static initialized = false;
+
+  static init() {
+    if (this.initialized) return;
+    this.initialized = true;
+    this.ensure();
+  }
 
   private static ensure() {
     if (!this.ctx) {
@@ -14,11 +21,13 @@ export class AudioManager {
       this.sfxGain.gain.value = Settings.sfxVolume * 0.3;
       this.sfxGain.connect(this.ctx.destination);
     }
-    if (this.ctx.state === "suspended") this.ctx.resume();
+    if (this.ctx.state === "suspended") {
+      this.ctx.resume();
+    }
   }
 
   static setSfxVolume(v: number) {
-    this.ensure();
+    if (!this.initialized) return;
     if (this.sfxGain) this.sfxGain.gain.value = v * 0.3;
   }
 
@@ -34,7 +43,7 @@ export class AudioManager {
 
   private static tone(freq: number, duration: number, type: OscillatorType = "square", delay = 0) {
     if (Settings.sfxVolume <= 0) return;
-    this.ensure();
+    if (!this.initialized) return;
     if (!this.ctx || !this.sfxGain) return;
     const osc = this.ctx.createOscillator();
     const g = this.ctx.createGain();
@@ -50,7 +59,7 @@ export class AudioManager {
 
   static startBGM() {
     if (Settings.bgmVolume <= 0) return;
-    this.ensure();
+    if (!this.initialized) return;
     if (!this.ctx || this.bgmInterval) return;
     this.bgmGain = this.ctx.createGain();
     this.bgmGain.gain.value = this.currentBgmVolume * 0.08;
@@ -98,4 +107,8 @@ export class AudioManager {
     this.tone(1000, 0.2, "sine", 0.3);
   }
   static hit() { this.tone(200, 0.06, "square"); }
+  static switchWeapon() {
+    this.tone(600, 0.04, "square");
+    this.tone(800, 0.04, "square", 0.04);
+  }
 }

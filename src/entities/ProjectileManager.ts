@@ -57,24 +57,6 @@ export class ProjectileManager {
     }
   }
 
-  checkHitsAgainst(
-    enemyList: Phaser.Physics.Arcade.Sprite[],
-    onHit: (bullet: Phaser.Physics.Arcade.Sprite, enemy: Phaser.Physics.Arcade.Sprite) => boolean | void
-  ) {
-    const bullets = this.bullets.getChildren() as Phaser.Physics.Arcade.Sprite[];
-    for (const b of bullets) {
-      if (!b.active) continue;
-      for (const e of enemyList) {
-        if (!e.active) continue;
-        const d = Phaser.Math.Distance.Between(b.x, b.y, e.x, e.y);
-        if (d < HIT_RANGE) {
-          const shouldStop = onHit(b, e);
-          if (shouldStop || !b.active) break;
-        }
-      }
-    }
-  }
-
   checkEnemyHits(
     px: number, py: number, time: number, iFrameTimer: number,
     onHit: (bullet: Phaser.Physics.Arcade.Sprite) => boolean

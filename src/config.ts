@@ -1,4 +1,4 @@
-import { PlayerStats, Weapon, WeaponConfig, Mod, Rarity, ShopItem, BodyPartUpgrade, WaveConfig, EnemyType, EvolutionRecipe, PowerConfig } from "./types";
+import { PlayerStats, Weapon, WeaponConfig, Mod, Rarity, ShopItem, BodyPartUpgrade, WaveConfig, EnemyType, EvolutionRecipe, PowerConfig, Character } from "./types";
 
 export const PART_NAMES: Record<string, string> = { head: "头部", chest: "胸部", legs: "腿部", weapon: "武器" };
 export const PART_COLORS: Record<string, string> = { head: "#f80", chest: "#f44", legs: "#4f8", weapon: "#8cf" };
@@ -12,7 +12,7 @@ export const RARITIES: Rarity[] = [
 
 export const WEAPON_CONFIGS: WeaponConfig[] = [
   { id: "pistol", name: "手枪", damage: 12, fireRate: 350, bulletCount: 1, spread: 0, bulletSpeed: 400, range: 300, ammoMax: 15, reloadTime: 1000, weaponType: "ranged", cost: 0 },
-  { id: "smg", name: "冲锋枪", damage: 4, fireRate: 120, bulletCount: 2, spread: 12, bulletSpeed: 350, range: 250, ammoMax: 25, reloadTime: 1800, weaponType: "ranged", cost: 30 },
+  { id: "smg", name: "冲锋枪", damage: 4, fireRate: 80, bulletCount: 1, spread: 8, bulletSpeed: 380, range: 250, ammoMax: 30, reloadTime: 1600, weaponType: "ranged", cost: 30 },
   { id: "shotgun", name: "霰弹枪", damage: 8, fireRate: 700, bulletCount: 5, spread: 15, bulletSpeed: 350, range: 120, ammoMax: 6, reloadTime: 2200, weaponType: "ranged", cost: 30 },
   { id: "sniper", name: "狙击枪", damage: 50, fireRate: 1000, bulletCount: 1, spread: 0, bulletSpeed: 700, range: 500, ammoMax: 6, reloadTime: 2200, penetrate: 1, weaponType: "ranged", cost: 30 },
   { id: "rifle", name: "步枪", damage: 15, fireRate: 300, bulletCount: 1, spread: 3, bulletSpeed: 450, range: 350, ammoMax: 20, reloadTime: 1800, weaponType: "ranged", cost: 20 },
@@ -312,3 +312,62 @@ export function randomEdgePos(): { x: number; y: number } {
     default: return { x: -30, y: Phaser.Math.Between(0, H) };
   }
 }
+
+export const CHARACTERS: Character[] = [
+  {
+    id: "merc", name: "雇佣兵", hpMult: 1, speedMult: 1,
+    startWeapons: ["rifle"],
+    desc: "均衡型角色，适合新手",
+    passive: (s, w) => { for (const we of w) we.damage = Math.round(we.damage * 1.1); },
+    abilityName: "精准射击", abilityDesc: "6秒内100%暴击",
+    abilityCooldown: 15000, abilityDuration: 6000,
+  },
+  {
+    id: "spec", name: "特种兵", hpMult: 0.9, speedMult: 1.1,
+    startWeapons: ["smg"],
+    desc: "高机动性，冲锋枪专精",
+    passive: (s, w) => { for (const we of w) we.reloadTime = Math.round(we.reloadTime * 0.8); },
+    abilityName: "速射", abilityDesc: "4秒内射速翻倍",
+    abilityCooldown: 18000, abilityDuration: 4000,
+  },
+  {
+    id: "sniper", name: "狙击手", hpMult: 0.8, speedMult: 0.9,
+    startWeapons: ["sniper"],
+    desc: "远程高伤害，射程优势",
+    passive: (s, w) => { for (const we of w) we.range += 50; },
+    abilityName: "锁定", abilityDesc: "5秒内伤害+50%",
+    abilityCooldown: 20000, abilityDuration: 5000,
+  },
+  {
+    id: "fireman", name: "消防员", hpMult: 1.2, speedMult: 0.95,
+    startWeapons: ["fireaxe"],
+    desc: "近战火力，高防御",
+    passive: (s) => { s.armor += 2; },
+    abilityName: "火焰盾", abilityDesc: "3秒无敌",
+    abilityCooldown: 25000, abilityDuration: 3000,
+  },
+  {
+    id: "lucky", name: "幸运儿", hpMult: 1.0, speedMult: 1.0,
+    startWeapons: ["pistol"],
+    desc: "运气爆棚，选择多样",
+    passive: () => {},
+    abilityName: "聚宝", abilityDesc: "5秒内掉落翻倍",
+    abilityCooldown: 20000, abilityDuration: 5000,
+  },
+  {
+    id: "tank", name: "重装兵", hpMult: 1.5, speedMult: 0.8,
+    startWeapons: ["shotgun"],
+    desc: "肉盾型角色，高血量高护甲",
+    passive: (s) => { s.armor += 1; },
+    abilityName: "铁壁", abilityDesc: "5秒内护甲+10",
+    abilityCooldown: 22000, abilityDuration: 5000,
+  },
+  {
+    id: "berserker", name: "疯子", hpMult: 0.85, speedMult: 1.3,
+    startWeapons: ["crowbar"],
+    desc: "狂战士，击杀回血",
+    passive: (s) => { s.speed = Math.round(s.speed * 1.15); },
+    abilityName: "狂暴", abilityDesc: "4秒内射速大幅提升",
+    abilityCooldown: 16000, abilityDuration: 4000,
+  },
+];

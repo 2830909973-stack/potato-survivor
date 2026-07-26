@@ -414,16 +414,16 @@ export class EnemyManager {
     let nearest: Phaser.Physics.Arcade.Sprite | null = null;
     let minDist = Infinity;
     for (const enemy of this.list) {
-      if (!enemy.active) continue;
+      if (!enemy.active || enemy.getData("controlled")) continue;
       const d = Phaser.Math.Distance.Between(px, py, enemy.x, enemy.y);
       if (d < minDist) { minDist = d; nearest = enemy; }
     }
     return nearest;
   }
 
-  getEnemiesInRange(px: number, py: number, range: number): Phaser.Physics.Arcade.Sprite[] {
+  getEnemiesInRange(px: number, py: number, range: number, excludeControlled = true): Phaser.Physics.Arcade.Sprite[] {
     return this.list.filter(e =>
-      e.active && Phaser.Math.Distance.Between(px, py, e.x, e.y) < range
+      e.active && !(excludeControlled && e.getData("controlled")) && Phaser.Math.Distance.Between(px, py, e.x, e.y) < range
     );
   }
 

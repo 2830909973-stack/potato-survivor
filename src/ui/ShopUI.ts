@@ -54,6 +54,14 @@ export class ShopUI {
     this.stats = null;
   }
 
+  destroy() {
+    this.container.removeAll(true);
+    this.container.destroy();
+    this.visible = false;
+    this.callbacks = null;
+    this.stats = null;
+  }
+
   private rerollCost(): number {
     if (!this.stats) return 999;
     return calcRerollCost(this.stats.level, this.rerollCount);
@@ -66,9 +74,9 @@ export class ShopUI {
     if (!this.stats) return;
 
     const children: Phaser.GameObjects.GameObject[] = [];
-    const bg = this.scene.add.rectangle(W / 2, H / 2, 500, 540, 0x000000, 0.88).setOrigin(0.5);
-    const title = this.scene.add.text(W / 2, H / 2 - 250, "商店", { fontSize: "26px", color: "#ff0", fontStyle: "bold" }).setOrigin(0.5);
-    const matLabel = this.scene.add.text(W / 2, H / 2 - 220, `材料: ${this.stats.materials}`, { fontSize: "16px", color: "#0f8" }).setOrigin(0.5);
+    const bg = this.scene.add.rectangle(W / 2, H / 2, 540, 580, 0x000000, 0.88).setOrigin(0.5);
+    const title = this.scene.add.text(W / 2, H / 2 - 260, "商店", { fontSize: "26px", color: "#ff0", fontStyle: "bold" }).setOrigin(0.5);
+    const matLabel = this.scene.add.text(W / 2, H / 2 - 230, `材料: ${this.stats.materials}`, { fontSize: "16px", color: "#0f8" }).setOrigin(0.5);
     children.push(bg, title, matLabel);
 
     this.populateShopItems(children);
@@ -134,7 +142,7 @@ export class ShopUI {
     const allItems = pool.slice(0, 5);
 
     allItems.forEach((item, i) => {
-      const y = H / 2 - 150 + i * 75;
+      const y = H / 2 - 160 + i * 72;
       const isWeapon = item.type === "weapon";
       const isMod = item.type === "mod";
       const isPower = item.type === "power";
@@ -228,7 +236,7 @@ export class ShopUI {
 
   private showOwnedWeapons(children: Phaser.GameObjects.GameObject[]) {
     if (this.weapons.length < 2) return;
-    const wy = H / 2 + 170;
+    const wy = H / 2 + 185;
     const label = this.scene.add.text(W / 2, wy, "丢弃武器以腾出空位", { fontSize: "11px", color: "#f84" }).setOrigin(0.5);
     children.push(label);
     const totalW = this.weapons.length * 130 + (this.weapons.length - 1) * 8;
@@ -250,7 +258,7 @@ export class ShopUI {
   private showCurrentMods(children: Phaser.GameObjects.GameObject[]) {
     const w = this.weapons[this.activeWeaponIdx];
     if (!w) return;
-    const modY = H / 2 + 200;
+    const modY = H / 2 + 215;
     const modLabel = this.scene.add.text(W / 2, modY, `当前: ${w.name}`, { fontSize: "13px", color: "#ff0", fontStyle: "bold" }).setOrigin(0.5);
     children.push(modLabel);
 
@@ -280,8 +288,8 @@ export class ShopUI {
     if (!this.stats) return;
     const cost = this.rerollCost();
     const canReroll = this.stats.materials >= cost;
-    const btn = this.scene.add.rectangle(W - 70, H / 2 + 230, 100, 30, canReroll ? 0x444488 : 0x333333).setInteractive({ useHandCursor: !!canReroll });
-    const label = this.scene.add.text(W - 70, H / 2 + 230, `刷新 ${cost}💰`, { fontSize: "13px", color: canReroll ? "#fff" : "#666", fontStyle: "bold" }).setOrigin(0.5);
+    const btn = this.scene.add.rectangle(W - 70, H / 2 + 245, 100, 30, canReroll ? 0x444488 : 0x333333).setInteractive({ useHandCursor: !!canReroll });
+    const label = this.scene.add.text(W - 70, H / 2 + 245, `刷新 ${cost}💰`, { fontSize: "13px", color: canReroll ? "#fff" : "#666", fontStyle: "bold" }).setOrigin(0.5);
     children.push(btn, label);
 
     if (canReroll) {
@@ -294,8 +302,8 @@ export class ShopUI {
   }
 
   private addNextWaveButton(children: Phaser.GameObjects.GameObject[]) {
-    const nextBtn = this.scene.add.rectangle(W / 2, H / 2 + 240, 200, 40, 0x444488).setInteractive({ useHandCursor: true });
-    const nextLabel = this.scene.add.text(W / 2, H / 2 + 240, "开始下一波", { fontSize: "16px", color: "#fff", fontStyle: "bold" }).setOrigin(0.5);
+    const nextBtn = this.scene.add.rectangle(W / 2, H / 2 + 255, 200, 40, 0x444488).setInteractive({ useHandCursor: true });
+    const nextLabel = this.scene.add.text(W / 2, H / 2 + 255, "开始下一波", { fontSize: "16px", color: "#fff", fontStyle: "bold" }).setOrigin(0.5);
     nextBtn.on("pointerover", () => nextBtn.setFillStyle(0x6666aa));
     nextBtn.on("pointerout", () => nextBtn.setFillStyle(0x444488));
     nextBtn.on("pointerdown", () => this.callbacks?.nextWave());
