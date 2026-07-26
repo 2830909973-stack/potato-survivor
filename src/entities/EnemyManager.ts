@@ -119,15 +119,15 @@ export class EnemyManager {
     if (sg.boss) {
       let bd = BOSS_DATA[wave];
       if (!bd) {
-        const bossWave = Math.floor(wave / 5) * 5;
-        const baseBd = BOSS_DATA[30];
+        const bossWave = Math.floor(wave / 10) * 10;
+        const baseBd = BOSS_DATA[20];
         bd = {
           name: `虚空领主 Lv.${wave}`,
-          hpMult: Math.round((baseBd?.hpMult ?? 100) * (1 + (wave - 30) * 0.15)),
-          speed: Math.min(80, (baseBd?.speed ?? 55) + (wave - 30) * 2),
-          scale: Math.min(6, (baseBd?.scale ?? 5) + (wave - 30) * 0.1),
+          hpMult: Math.round((baseBd?.hpMult ?? 40) * (1 + (wave - 20) * 0.15)),
+          speed: Math.min(80, (baseBd?.speed ?? 45) + (wave - 20) * 2),
+          scale: Math.min(6, (baseBd?.scale ?? 4) + (wave - 20) * 0.1),
           tint: Phaser.Display.Color.HSLToColor((wave * 0.07) % 1, 0.8, 0.4).color,
-          dropMult: (baseBd?.dropMult ?? 50) + Math.floor((wave - 30) / 5) * 5,
+          dropMult: (baseBd?.dropMult ?? 30) + Math.floor((wave - 20) / 5) * 5,
         };
       }
       const e = this.spawnOne(eCfg, { ...sg, spdMult: 1, hpMult: bd.hpMult }, wave);
@@ -138,7 +138,6 @@ export class EnemyManager {
         e.setData("bossName", bd.name);
         e.setData("bossWave", wave);
         e.setData("bossTimer", 2000);
-        e.setData("bossCharging", false);
         e.setData("baseScale", bd.scale);
         e.setScale(0);
         this.scene.tweens.add({ targets: e, scaleX: bd.scale, scaleY: bd.scale, duration: 300, ease: "Back.easeOut" });
@@ -288,58 +287,17 @@ export class EnemyManager {
     const boss = this.getBoss();
     if (!boss) return;
 
-    const hp = boss.getData("hp") as number;
     const hpMax = boss.getData("bossHpMax") as number;
-    const hpPct = hp / hpMax;
-    let phase = 1;
-    if (hpPct <= 0.25) phase = 3;
-    else if (hpPct <= 0.5) phase = 2;
-
-    let oldPhase = boss.getData("bossPhase") as number || 1;
-    boss.setData("bossPhase", phase);
-    if (phase !== oldPhase) boss.setData("bossTimer", 500);
+    const baseDmg = hpMax >= 2000 ? 15 : hpMax >= 1000 ? 12 : 10;
+    const scatterCount = hpMax >= 1200 ? 5 : 3;
 
     let timer = boss.getData("bossTimer") as number || 0;
     timer -= delta;
     if (timer > 0) { boss.setData("bossTimer", timer); return; }
 
     const angle = Phaser.Math.Angle.Between(boss.x, boss.y, px, py);
-    if (boss.getData("bossCharging")) {
-      boss.setData("bossCharging", false);
-      boss.setVelocity(0, 0);
-    }
-
-    const bossMaxHp = boss.getData("bossHpMax") as number;
-    const isMini = bossMaxHp < 1200;
-    const baseDmg = bossMaxHp >= 2000 ? 15 : bossMaxHp >= 1000 ? 12 : 10;
-    const scatterCount = bossMaxHp >= 1200 ? 5 : 3;
-    const scatterSpread = bossMaxHp >= 1200 ? 40 : 30;
-
-    if (isMini) {
-      this.bossScatter(boss, angle, scatterCount, scatterSpread, baseDmg, enemyBullets);
-      boss.setData("bossTimer", 2500);
-      return;
-    }
-
-    if (phase === 1) {
-      this.bossScatter(boss, angle, 5, 40, baseDmg, enemyBullets);
-      boss.setData("bossTimer", 2500);
-    } else if (phase === 2) {
-      this.bossScatter(boss, angle, 5, 40, Math.round(baseDmg * 1.25), enemyBullets);
-      boss.setData("bossTimer", 2000);
-      if (Math.random() < 0.35) {
-        boss.setData("bossCharging", true);
-        boss.setVelocity(Math.cos(angle) * 300, Math.sin(angle) * 300);
-        this.scene.time.delayedCall(500, () => {
-          if (boss.active) { boss.setData("bossCharging", false); boss.setVelocity(0, 0); }
-        });
-      }
-      if (Math.random() < 0.3) this.spawnSummon(boss.x, boss.y, 3);
-    } else {
-      this.bossScatter(boss, angle, 5, 40, Math.round(baseDmg * 1.5), enemyBullets);
-      this.bossSpin(boss, 8, Math.round(baseDmg * 1.5), enemyBullets);
-      boss.setData("bossTimer", 1000);
-    }
+    this.bossScatter(boss, angle, scatterCount, 30, baseDmg, enemyBullets);
+    boss.setData("bossTimer", 2000);
   }
 
   private bossScatter(boss: Phaser.Physics.Arcade.Sprite, centerAngle: number, bulletCount: number, spreadDeg: number, damage: number, enemyBullets: Phaser.Physics.Arcade.Group) {
@@ -353,42 +311,12 @@ export class EnemyManager {
     }
   }
 
-  private bossSpin(boss: Phaser.Physics.Arcade.Sprite, bulletCount: number, damage: number, enemyBullets: Phaser.Physics.Arcade.Group) {
-    for (let i = 0; i < bulletCount; i++) {
-      const a = i * (2 * Math.PI / bulletCount);
-      const eb = this.activateBullet(enemyBullets, boss.x, boss.y);
-      if (!eb) continue;
-      eb.setVelocity(Math.cos(a) * 200, Math.sin(a) * 200);
-      eb.setData("damage", damage);
-    }
-  }
-
   private activateBullet(group: Phaser.Physics.Arcade.Group, x: number, y: number): Phaser.Physics.Arcade.Sprite | null {
     const b = group.get(x, y, "enemyBullet") as Phaser.Physics.Arcade.Sprite;
     if (!b) return null;
     b.setActive(true).setVisible(true);
     if (b.body) b.body.enable = true;
     return b;
-  }
-
-  private spawnSummon(x: number, y: number, count: number) {
-    const eCfg = ENEMY_CONFIG.normal;
-    for (let i = 0; i < count; i++) {
-      const offX = Phaser.Math.Between(-60, 60);
-      const offY = Phaser.Math.Between(-60, 60);
-      const e = this.getFromPool(x + offX, y + offY, "zombie_normal");
-      if (!e) continue;
-      e.setTint(eCfg.tint);
-      e.setData("hp", eCfg.hp);
-      e.setData("speed", eCfg.speed);
-      e.setData("type", "normal");
-      e.setData("dropMult", eCfg.dropMult);
-      e.setData("lastShot", 0);
-      this.list.push(e);
-      e.setData("baseScale", eCfg.scale);
-      e.setScale(0);
-      this.scene.tweens.add({ targets: e, scaleX: eCfg.scale, scaleY: eCfg.scale, duration: 200, ease: "Back.easeOut" });
-    }
   }
 
   rangedShoot(time: number, enemyBullets: Phaser.Physics.Arcade.Group, px: number, py: number) {

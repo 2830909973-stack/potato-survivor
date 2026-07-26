@@ -272,7 +272,6 @@ export class HUDManager {
     reloading: boolean,
     wave: number,
     waveTimer: number,
-    bossPhase: boolean,
     grenadeCount: number,
     grenadeCooldown: number,
     enemyCount: number,

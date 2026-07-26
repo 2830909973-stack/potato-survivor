@@ -136,38 +136,27 @@ export const ENEMY_CONFIG = {
   invisible: { hp: 20, speed: 120, tint: 0x888888, scale: 0.9, dropMult: 1 },
 };
 
-export const WAVE_CONFIGS: WaveConfig[] = [
-  { enemies: [{ type: "normal", count: 20 }], speedMult: 1, hpMult: 1 },
-  { enemies: [{ type: "normal", count: 25 }, { type: "fast", count: 10 }], speedMult: 1, hpMult: 1 },
-  { enemies: [{ type: "normal", count: 30 }, { type: "fast", count: 15 }, { type: "tank", count: 5 }], speedMult: 1.1, hpMult: 1, eliteChance: 0.05 },
-  { enemies: [{ type: "normal", count: 35 }, { type: "ranged", count: 15 }, { type: "tank", count: 10 }], speedMult: 1.1, hpMult: 1.1, eliteChance: 0.05 },
-  { enemies: [{ type: "normal", count: 30 }, { type: "fast", count: 20 }, { type: "ranged", count: 10 }, { type: "tank", count: 10 }], speedMult: 1.1, hpMult: 1.1, eliteChance: 0.08 },
-  { enemies: [{ type: "normal", count: 35 }, { type: "fast", count: 25 }, { type: "ranged", count: 15 }, { type: "tank", count: 15 }], speedMult: 1.2, hpMult: 1.2, eliteChance: 0.08 },
-  { enemies: [{ type: "normal", count: 40 }, { type: "fast", count: 30 }, { type: "ranged", count: 20 }, { type: "tank", count: 18 }], speedMult: 1.2, hpMult: 1.2, eliteChance: 0.08 },
-  { enemies: [{ type: "normal", count: 35 }, { type: "fast", count: 30 }, { type: "ranged", count: 20 }, { type: "tank", count: 20 }, { type: "charger", count: 5 }], speedMult: 1.3, hpMult: 1.3, eliteChance: 0.1 },
-  { enemies: [{ type: "normal", count: 35 }, { type: "fast", count: 25 }, { type: "ranged", count: 25 }, { type: "tank", count: 20 }, { type: "charger", count: 10 }], speedMult: 1.3, hpMult: 1.3, eliteChance: 0.1 },
-  { enemies: [{ type: "normal", count: 40 }, { type: "fast", count: 30 }, { type: "ranged", count: 25 }, { type: "tank", count: 22 }, { type: "charger", count: 12 }], speedMult: 1.4, hpMult: 1.4, eliteChance: 0.12 },
-  { enemies: [{ type: "normal", count: 35 }, { type: "fast", count: 25 }, { type: "ranged", count: 20 }, { type: "tank", count: 18 }, { type: "charger", count: 10 }, { type: "exploder", count: 5 }], speedMult: 1.45, hpMult: 1.45, eliteChance: 0.12 },
-  { enemies: [{ type: "fast", count: 35 }, { type: "ranged", count: 25 }, { type: "charger", count: 15 }, { type: "exploder", count: 8 }], speedMult: 1.5, hpMult: 1.5, eliteChance: 0.12 },
-  { enemies: [{ type: "normal", count: 30 }, { type: "fast", count: 25 }, { type: "ranged", count: 20 }, { type: "healer", count: 5 }, { type: "exploder", count: 8 }], speedMult: 1.55, hpMult: 1.55, eliteChance: 0.12 },
-  { enemies: [{ type: "normal", count: 35 }, { type: "tank", count: 20 }, { type: "charger", count: 18 }, { type: "exploder", count: 12 }, { type: "invisible", count: 8 }], speedMult: 1.6, hpMult: 1.6, eliteChance: 0.15 },
-  { enemies: [{ type: "fast", count: 40 }, { type: "ranged", count: 30 }, { type: "charger", count: 20 }, { type: "exploder", count: 15 }, { type: "invisible", count: 10 }], speedMult: 1.65, hpMult: 1.65, eliteChance: 0.15 },
-  { enemies: [{ type: "normal", count: 40 }, { type: "fast", count: 35 }, { type: "tank", count: 25 }, { type: "charger", count: 20 }, { type: "exploder", count: 15 }, { type: "healer", count: 5 }], speedMult: 1.7, hpMult: 1.7, eliteChance: 0.15 },
-  { enemies: [{ type: "fast", count: 40 }, { type: "ranged", count: 30 }, { type: "tank", count: 25 }, { type: "charger", count: 22 }, { type: "exploder", count: 18 }, { type: "healer", count: 8 }], speedMult: 1.75, hpMult: 1.75, eliteChance: 0.18 },
-  { enemies: [{ type: "normal", count: 45 }, { type: "fast", count: 35 }, { type: "charger", count: 25 }, { type: "exploder", count: 20 }, { type: "ranged", count: 25 }], speedMult: 1.8, hpMult: 1.8, eliteChance: 0.18 },
-  { enemies: [{ type: "fast", count: 40 }, { type: "charger", count: 28 }, { type: "exploder", count: 22 }, { type: "tank", count: 25 }, { type: "ranged", count: 30 }], speedMult: 1.85, hpMult: 1.85, eliteChance: 0.2 },
-  { enemies: [{ type: "normal", count: 50 }, { type: "fast", count: 40 }, { type: "charger", count: 30 }, { type: "exploder", count: 25 }, { type: "tank", count: 25 }], speedMult: 1.9, hpMult: 1.9, eliteChance: 0.2 },
-  { enemies: [{ type: "fast", count: 45 }, { type: "charger", count: 35 }, { type: "exploder", count: 28 }, { type: "ranged", count: 30 }], speedMult: 1.95, hpMult: 1.95, eliteChance: 0.15 },
-  { enemies: [{ type: "normal", count: 50 }, { type: "charger", count: 35 }, { type: "exploder", count: 25 }, { type: "ranged", count: 30 }], speedMult: 2.0, hpMult: 2.0, eliteChance: 0.18 },
-  { enemies: [{ type: "fast", count: 50 }, { type: "charger", count: 35 }, { type: "exploder", count: 28 }, { type: "tank", count: 25 }], speedMult: 2.05, hpMult: 2.05, eliteChance: 0.18 },
-  { enemies: [{ type: "normal", count: 55 }, { type: "fast", count: 40 }, { type: "charger", count: 35 }, { type: "exploder", count: 30 }], speedMult: 2.1, hpMult: 2.1, eliteChance: 0.18 },
-  { enemies: [{ type: "fast", count: 45 }, { type: "charger", count: 35 }, { type: "exploder", count: 30 }, { type: "tank", count: 30 }, { type: "ranged", count: 25 }], speedMult: 2.15, hpMult: 2.15, eliteChance: 0.2 },
-  { enemies: [{ type: "normal", count: 55 }, { type: "fast", count: 45 }, { type: "charger", count: 35 }, { type: "exploder", count: 30 }, { type: "ranged", count: 25 }, { type: "tank", count: 25 }], speedMult: 2.0, hpMult: 2.0, eliteChance: 0.18 },
-  { enemies: [{ type: "fast", count: 50 }, { type: "charger", count: 40 }, { type: "exploder", count: 30 }, { type: "tank", count: 30 }, { type: "ranged", count: 30 }], speedMult: 2.1, hpMult: 2.1, eliteChance: 0.18 },
-  { enemies: [{ type: "normal", count: 60 }, { type: "fast", count: 50 }, { type: "charger", count: 40 }, { type: "exploder", count: 30 }, { type: "tank", count: 25 }], speedMult: 2.2, hpMult: 2.2, eliteChance: 0.2 },
-  { enemies: [{ type: "fast", count: 55 }, { type: "charger", count: 40 }, { type: "exploder", count: 35 }, { type: "tank", count: 30 }, { type: "ranged", count: 30 }], speedMult: 2.3, hpMult: 2.3, eliteChance: 0.2 },
-  { enemies: [{ type: "normal", count: 65 }, { type: "fast", count: 55 }, { type: "charger", count: 45 }, { type: "exploder", count: 35 }, { type: "tank", count: 30 }, { type: "ranged", count: 30 }], speedMult: 2.4, hpMult: 2.4, eliteChance: 0.2 },
-];
+function generateWaveConfig(wave: number): WaveConfig {
+  const hpMult = 0.8 + wave * 0.06;
+  const speedMult = 0.9 + wave * 0.04;
+  const eliteChance = Math.min(0.25, wave * 0.012);
+  const baseCount = Math.round(12 + wave * 2.5);
+
+  const enemies: { type: EnemyType; count: number }[] = [];
+  enemies.push({ type: "normal", count: Math.round(baseCount * 0.4) });
+
+  if (wave >= 2) enemies.push({ type: "fast", count: Math.round(baseCount * 0.3) });
+  if (wave >= 4) enemies.push({ type: "ranged", count: Math.round(baseCount * 0.2) });
+  if (wave >= 5) enemies.push({ type: "tank", count: Math.round(baseCount * 0.15) });
+  if (wave >= 8) enemies.push({ type: "charger", count: Math.round(baseCount * 0.12) });
+  if (wave >= 10) enemies.push({ type: "exploder", count: Math.round(baseCount * 0.1) });
+  if (wave >= 12) enemies.push({ type: "healer", count: Math.round(baseCount * 0.06) });
+  if (wave >= 14) enemies.push({ type: "invisible", count: Math.round(baseCount * 0.08) });
+
+  return { enemies, speedMult, hpMult, eliteChance };
+}
+
+export const WAVE_CONFIGS: WaveConfig[] = Array.from({ length: 20 }, (_, i) => generateWaveConfig(i + 1));
 
 export function calcRerollCost(level: number, rerollCount: number): number {
   const wave = Math.max(1, level);
@@ -175,15 +164,7 @@ export function calcRerollCost(level: number, rerollCount: number): number {
 }
 
 export function getWaveDuration(wave: number): number {
-  if (wave === 1) return 30000;
-  if (wave === 2) return 35000;
-  if (wave === 3) return 40000;
-  if (wave === 4) return 45000;
-  if (wave <= 10) return 50000;
-  if (wave <= 15) return 55000;
-  if (wave <= 20) return 60000;
-  if (wave <= 25) return 65000;
-  return 70000;
+  return 35000 + Math.min(wave, 25) * 500;
 }
 
 export function pickRandomRarity(): Rarity {
@@ -231,12 +212,8 @@ export interface BossStats {
 }
 
 export const BOSS_DATA: Record<number, BossStats> = {
-  5: { name: "毒蝎", hpMult: 8, speed: 45, scale: 2.5, tint: 0xaa00ff, dropMult: 6 },
-  10: { name: "钢铁巨兽", hpMult: 30, speed: 40, scale: 3.5, tint: 0xcc0000, dropMult: 15 },
-  15: { name: "毒蝎·王", hpMult: 24, speed: 50, scale: 2.8, tint: 0xff00ff, dropMult: 10 },
-  20: { name: "毁灭巨兽", hpMult: 50, speed: 45, scale: 4, tint: 0xff4400, dropMult: 25 },
-  25: { name: "暗影领主", hpMult: 60, speed: 50, scale: 4, tint: 0x4444ff, dropMult: 30 },
-  30: { name: "死亡之翼", hpMult: 100, speed: 55, scale: 5, tint: 0xff0044, dropMult: 50 },
+  10: { name: "钢铁巨兽", hpMult: 20, speed: 40, scale: 3.5, tint: 0xcc0000, dropMult: 15 },
+  20: { name: "毁灭巨兽", hpMult: 40, speed: 45, scale: 4, tint: 0xff4400, dropMult: 30 },
 };
 
 export const EVOLUTIONS: EvolutionRecipe[] = [

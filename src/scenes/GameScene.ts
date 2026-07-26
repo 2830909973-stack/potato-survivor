@@ -3,7 +3,7 @@ import { Weapon, SpawnRule, W, H, PICKUP_RANGE, Power, MAX_POWERS, PowerConfig, 
 import { Settings, DEFAULT_KEY_BINDINGS } from "../utils/Settings";
 import { SettingsUI } from "../ui/SettingsUI";
 import { VictoryUI } from "../ui/VictoryUI";
-import { WAVE_CONFIGS, getWaveDuration, calcRerollCost, ITEMS, XP_PER_KILL, BOSS_DATA, CONSUMABLES, EVOLUTIONS, getBiome, DIFFICULTY_TIERS } from "../config";
+import { WAVE_CONFIGS, getWaveDuration, calcRerollCost, ITEMS, XP_PER_KILL, BOSS_DATA, EVOLUTIONS, getBiome, DIFFICULTY_TIERS } from "../config";
 import { AudioManager } from "../utils/AudioManager";
 import { Achievements } from "../utils/Achievements";
 import { MetaProgress } from "../utils/MetaProgress";
@@ -34,7 +34,7 @@ export class GameScene extends Phaser.Scene {
   private inShop = false;
   private levelingUp = false;
   private bossActive = false;
-  private bossPhase = false;
+
   private spawnRules: SpawnRule[] = [];
   private pendingLevelUps = 0;
   private rerollCount = 0;
@@ -85,7 +85,6 @@ export class GameScene extends Phaser.Scene {
     this.levelingUp = false;
     this.waveTimer = 0;
     this.bossActive = false;
-    this.bossPhase = false;
     this.spawnRules = [];
     this.pendingLevelUps = 0;
     this.rerollCount = 0;
@@ -139,15 +138,8 @@ export class GameScene extends Phaser.Scene {
 
     this.waveTimer -= delta;
     if (this.waveTimer <= 0) {
-      if (this.bossActive && this.enemyMgr.getBoss() && !this.bossPhase) {
-        this.enterBossPhase();
-        this.waveTimer = 0;
-      } else if (this.bossPhase) {
-        this.waveTimer = 0;
-      } else {
-        this.onWaveTimeout();
-        return;
-      }
+      this.onWaveTimeout();
+      return;
     }
 
     this.player.update(time, delta);
@@ -199,13 +191,13 @@ export class GameScene extends Phaser.Scene {
     if (this.player.invincible) buffs.push({ label: "无敌", color: 0xffaa00 });
     if (this.player.speedBuffTimer > 0) buffs.push({ label: "加速", color: 0x44aaff });
     if (this.player.fireRateBuffTimer > 0) buffs.push({ label: "速射", color: 0xff6644 });
-    this.hud.update(this.player.stats, this.player.weapons, this.player.activeWeaponIdx, isReloading, this.wave, this.waveTimer, this.bossPhase, this.player.grenadeCount, this.player.grenadeCooldown, this.enemyMgr.count, getWaveDuration(this.wave), this.player.abilityCooldown, this.player.powers, this.player.powerCooldowns, this.player.powerActive, buffs);
+    this.hud.update(this.player.stats, this.player.weapons, this.player.activeWeaponIdx, isReloading, this.wave, this.waveTimer, this.player.grenadeCount, this.player.grenadeCooldown, this.enemyMgr.count, getWaveDuration(this.wave), this.player.abilityCooldown, this.player.powers, this.player.powerCooldowns, this.player.powerActive, buffs);
   }
 
   private startNextWave() {
     this.wave++;
     this.waveTimer = getWaveDuration(this.wave);
-    this.bossActive = this.wave % 5 === 0;
+    this.bossActive = this.wave % 10 === 0;
     this.spawnRules = [];
     this.player.refillAmmo();
 
@@ -246,8 +238,8 @@ export class GameScene extends Phaser.Scene {
 
     if (this.bossActive && BOSS_DATA[this.wave]) {
       this.spawnRules.push({ type: "tank", batchSize: 1, interval: 0, timer: Math.round(lastBatchTime * 0.5), remaining: 1, boss: true, dropMult: BOSS_DATA[this.wave].dropMult });
-    } else if (this.bossActive && this.wave > 30) {
-      const dynamicDropMult = 30 + Math.floor((this.wave - 30) / 5) * 5;
+    } else if (this.bossActive && this.wave > 20) {
+      const dynamicDropMult = 30 + Math.floor((this.wave - 20) / 5) * 5;
       this.spawnRules.push({ type: "tank", batchSize: 1, interval: 0, timer: Math.round(lastBatchTime * 0.5), remaining: 1, boss: true, dropMult: dynamicDropMult });
     }
     if (this.player.ownedItems.has("medkit")) {
@@ -278,35 +270,6 @@ export class GameScene extends Phaser.Scene {
       else
         rule.timer = Infinity;
     }
-  }
-
-  private enterBossPhase() {
-    this.bossPhase = true;
-    this.waveTimer = 0;
-    this.spawnRules = [];
-    const toRemove: Phaser.Physics.Arcade.Sprite[] = [];
-    for (const enemy of this.enemyMgr.list) {
-      if (!enemy.active || enemy.getData("boss")) continue;
-      toRemove.push(enemy);
-    }
-    for (const enemy of toRemove) {
-      this.effects.deathEffect(enemy.x, enemy.y);
-      const mult = enemy.getData("dropMult") as number || 1;
-      const eType = enemy.getData("type") as string;
-      const xpAmt = XP_PER_KILL[eType as keyof typeof XP_PER_KILL] || 5;
-      this.spawnDrop(enemy.x, enemy.y, mult, xpAmt);
-      this.enemyMgr.deactivateEnemy(enemy);
-    }
-    this.enemyMgr.list = this.enemyMgr.list.filter(e => e.getData("boss"));
-    this.hud.announce("消灭 Boss!");
-  }
-
-  private onBossKilled() {
-    this.spawnRules = [];
-    this.collectAllDrops();
-    this.bossPhase = false;
-    this.bossActive = false;
-    this.onWaveClear();
   }
 
   private onWaveTimeout() {
@@ -376,11 +339,11 @@ export class GameScene extends Phaser.Scene {
 
   private onWaveClear() {
     if (this.gameOver) return;
-    if (this.wave >= 30 && !this.endlessMode) {
+    if (this.wave >= 20 && !this.endlessMode) {
       this.showVictory();
       return;
     }
-    if (this.wave >= 30 && this.endlessMode) {
+    if (this.wave >= 20 && this.endlessMode) {
       this.hud.announce(`无尽模式 · 第 ${this.wave} 波!`);
     }
     if (this.pendingLevelUps > 0) {
@@ -452,8 +415,8 @@ export class GameScene extends Phaser.Scene {
     this.physics.pause();
     this.rerollCount = 0;
     this.shopUI.show(
-      this.player.stats, this.player.weapons, this.player.activeWeaponIdx,
-      this.player.ownedItems, this.player.powers, this.rerollCount, this.shopCallbacks
+      this.player.stats, this.player.weapons, this.player.ownedItems,
+      this.rerollCount, this.shopCallbacks
     );
   }
 
@@ -463,10 +426,6 @@ export class GameScene extends Phaser.Scene {
         this.player.addWeapon(w);
         this.closeShopAndNextWave();
       },
-      buyMod: (mod) => {
-        this.player.addModToActive(mod);
-        this.closeShopAndNextWave();
-      },
       buyItem: (itemId) => {
         this.player.ownedItems.add(itemId);
         const item = ITEMS.find(i => i.id === itemId);
@@ -474,53 +433,34 @@ export class GameScene extends Phaser.Scene {
         this.checkEvolutions(itemId);
         this.closeShopAndNextWave();
       },
-      buyPower: (powerCfg) => {
-        this.player.addPower(powerCfg);
+      buyHpSmall: () => {
+        this.player.heal(30);
         this.closeShopAndNextWave();
       },
-      buyConsumable: (itemId) => {
-        if (itemId === "adrenaline") {
-          this.player.applyAdrenaline();
-        } else if (itemId === "grenade") {
-          this.player.grenadeCount += 3;
-        } else {
-          const c = CONSUMABLES.find(i => i.id === itemId);
-          if (c?.apply) c.apply(this.player.stats, this.player.weapons);
+      sellWeapon: (idx) => {
+        if (idx < 0 || idx >= this.player.weapons.length) return;
+        const w = this.player.weapons[idx];
+        this.player.stats.materials += Math.max(1, Math.round(w.cost * 0.5));
+        this.player.weapons.splice(idx, 1);
+        if (this.player.activeWeaponIdx >= this.player.weapons.length) {
+          this.player.activeWeaponIdx = 0;
         }
-        this.closeShopAndNextWave();
+        this.shopUI.show(
+          this.player.stats, this.player.weapons, this.player.ownedItems,
+          this.rerollCount, this.shopCallbacks
+        );
       },
       reroll: () => {
         const cost = calcRerollCost(this.player.stats.level, this.rerollCount);
         this.player.stats.materials -= cost;
         this.rerollCount++;
         this.shopUI.show(
-          this.player.stats, this.player.weapons, this.player.activeWeaponIdx,
-          this.player.ownedItems, this.player.powers, this.rerollCount, this.shopCallbacks
+          this.player.stats, this.player.weapons, this.player.ownedItems,
+          this.rerollCount, this.shopCallbacks
         );
       },
       nextWave: () => {
         this.closeShopAndNextWave();
-      },
-      removeMod: (idx) => {
-        const w = this.player.activeWeapon;
-        if (!w) return;
-        w.mods[idx].remove(w);
-        w.mods.splice(idx, 1);
-        this.shopUI.show(
-          this.player.stats, this.player.weapons, this.player.activeWeaponIdx,
-          this.player.ownedItems, this.player.powers, this.rerollCount, this.shopCallbacks
-        );
-      },
-      discardWeapon: (idx) => {
-        if (idx < 0 || idx >= this.player.weapons.length) return;
-        this.player.weapons.splice(idx, 1);
-        if (this.player.activeWeaponIdx >= this.player.weapons.length) {
-          this.player.activeWeaponIdx = 0;
-        }
-        this.shopUI.show(
-          this.player.stats, this.player.weapons, this.player.activeWeaponIdx,
-          this.player.ownedItems, this.player.powers, this.rerollCount, this.shopCallbacks
-        );
       },
     };
   }
@@ -694,7 +634,6 @@ export class GameScene extends Phaser.Scene {
       this.effects.deathEffect(e.x, e.y);
       this.effects.deathEffect(e.x - 20, e.y - 20);
       this.effects.deathEffect(e.x + 20, e.y + 20);
-      this.time.delayedCall(200, () => this.onBossKilled());
     }
 
     this.enemyMgr.deactivateEnemy(e);
@@ -846,7 +785,7 @@ export class GameScene extends Phaser.Scene {
     AudioManager.stopBGM();
     this.physics.pause();
 
-    const won = this.wave >= 30;
+    const won = this.wave >= 20;
     if (won) {
       const nextDiff = this.difficultyLevel + 1;
       if (nextDiff < DIFFICULTY_TIERS.length) {
