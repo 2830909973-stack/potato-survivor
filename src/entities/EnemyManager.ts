@@ -199,7 +199,7 @@ export class EnemyManager {
     return b;
   }
 
-  rangedShoot(time: number, enemyBullets: Phaser.Physics.Arcade.Group, px: number, py: number) {
+  rangedShoot(time: number, enemyBullets: Phaser.Physics.Arcade.Group, px: number, py: number, wave = 1) {
     for (const enemy of this.list) {
       if (!enemy.active) continue;
       if (enemy.getData("type") !== "ranged") continue;
@@ -210,7 +210,7 @@ export class EnemyManager {
       const eb = this.activateBullet(enemyBullets, enemy.x, enemy.y);
       if (!eb) continue;
       eb.setVelocity(Math.cos(angle) * 200, Math.sin(angle) * 200);
-      eb.setData("damage", 12);
+      eb.setData("damage", Math.round(8 + wave * 0.6));
     }
   }
 

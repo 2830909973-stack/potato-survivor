@@ -45,6 +45,11 @@ export interface PlayerStats {
   hpRegen: boolean;
   pickupRangeBonus: number;
   xpMult?: number;
+  attackBonus: number;
+  damageReduction: number;
+  criticalDamageBonus: number;
+  healPerWave: number;
+  berserkDamageBonus: number;
 }
 
 export interface Weapon {
@@ -62,9 +67,10 @@ export interface Weapon {
   penetrate?: number;
   level: number;
   lastFired: number;
+  upgradeCount: number;
 }
 
-export type WeaponConfig = Omit<Weapon, "lastFired" | "level">;
+export type WeaponConfig = Omit<Weapon, "lastFired" | "level" | "upgradeCount">;
 
 export interface Character {
   id: string;
@@ -140,9 +146,4 @@ export interface DropItem {
   value: number;
 }
 
-export interface EvolutionRecipe {
-  weaponId: string;
-  itemId: string;
-  resultName: string;
-  result: WeaponConfig;
-}
+

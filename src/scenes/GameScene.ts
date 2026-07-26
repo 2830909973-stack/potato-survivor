@@ -1,9 +1,9 @@
 ﻿import Phaser from "phaser";
-import { Weapon, W, H, PICKUP_RANGE, Power, MAX_POWERS, PowerConfig, Character, EnemyType } from "../types";
+import { Weapon, W, H, PICKUP_RANGE, Power, MAX_POWERS, MAX_WEAPONS, PowerConfig, Character, EnemyType } from "../types";
 import { Settings, DEFAULT_KEY_BINDINGS } from "../utils/Settings";
 import { SettingsUI } from "../ui/SettingsUI";
 import { VictoryUI } from "../ui/VictoryUI";
-import { calcRerollCost, ITEMS, XP_PER_KILL, EVOLUTIONS, getBiome, DIFFICULTY_TIERS, ENEMY_CONFIG, randomEdgePos } from "../config";
+import { calcRerollCost, ITEMS, XP_PER_KILL, getBiome, DIFFICULTY_TIERS, ENEMY_CONFIG, randomEdgePos, calcEnemyStats } from "../config";
 import { AudioManager } from "../utils/AudioManager";
 import { Achievements } from "../utils/Achievements";
 import { MetaProgress } from "../utils/MetaProgress";
@@ -180,7 +180,7 @@ export class GameScene extends Phaser.Scene {
     }
 
     this.enemyMgr.moveAllToward(this.player.x, this.player.y, delta);
-    this.enemyMgr.rangedShoot(time, this.projectileMgr.enemyBullets, this.player.x, this.player.y);
+    this.enemyMgr.rangedShoot(time, this.projectileMgr.enemyBullets, this.player.x, this.player.y, this.wave);
 
     this.projectileMgr.checkEnemyHits(this.player.x, this.player.y, time, this.player.iFrameTimer, (b) => this.onEnemyBulletHit(b));
     this.projectileMgr.checkPlayerContact(this.activeEnemies, this.player.x, this.player.y, time, this.player.iFrameTimer, (e) => this.onPlayerContact(e));
@@ -257,6 +257,8 @@ export class GameScene extends Phaser.Scene {
   }
 
   private spawnEnemy() {
+    if (this.activeEnemies.filter(e => e.active).length >= 40) return;
+
     const types: EnemyType[] = ["normal"];
     if (this.wave >= 2) types.push("fast");
     if (this.wave >= 4) types.push("ranged");
@@ -269,8 +271,10 @@ export class GameScene extends Phaser.Scene {
     const type = types[Math.floor(Math.random() * types.length)];
     const eCfg = ENEMY_CONFIG[type];
     const diff = DIFFICULTY_TIERS[this.difficultyLevel];
-    const hpMult = (0.8 + this.wave * 0.06) * diff.hpMult;
-    const spdMult = (0.9 + this.wave * 0.04) * diff.speedMult;
+    const es = calcEnemyStats(type, this.wave);
+    const hp = Math.round(es.hp * diff.hpMult);
+    const speed = Math.round(es.speed * diff.speedMult);
+    const contactDmg = Math.round(es.contactDamage * diff.dmgMult);
 
     const pos = randomEdgePos();
     const texKey = this.enemyMgr.getTextureForType(type);
@@ -278,11 +282,11 @@ export class GameScene extends Phaser.Scene {
     if (!e) return;
 
     e.setTint(eCfg.tint);
-    e.setData("hp", Math.round(eCfg.hp * hpMult));
-    e.setData("maxHp", Math.round(eCfg.hp * hpMult));
-    e.setData("speed", Math.round(eCfg.speed * spdMult));
+    e.setData("hp", hp);
+    e.setData("maxHp", hp);
+    e.setData("speed", speed);
     e.setData("type", type);
-    e.setData("contactDamage", Math.round(5 + this.wave * 0.5));
+    e.setData("contactDamage", contactDmg);
     e.setData("dropMult", eCfg.dropMult);
     if (type === "charger") e.setData("chargeTimer", Phaser.Math.Between(500, 1000));
 
@@ -320,31 +324,6 @@ export class GameScene extends Phaser.Scene {
         onComplete: () => text.destroy(),
       });
     }
-  }
-
-  private checkEvolutions(itemId: string) {
-    const recipe = EVOLUTIONS.find(r => r.itemId === itemId && this.player.weapons.some(w => w.id === r.weaponId));
-    if (!recipe) return;
-    const idx = this.player.weapons.findIndex(w => w.id === recipe.weaponId);
-    if (idx === -1) return;
-    const oldW = this.player.weapons[idx];
-    const base = WEAPON_CONFIGS.find(w => w.id === recipe.weaponId);
-    const dmgMult = base ? oldW.damage / base.damage : 1;
-    const frMult = base ? base.fireRate / oldW.fireRate : 1;
-    const evolved: Weapon = {
-      ...recipe.result,
-      damage: Math.round(recipe.result.damage * dmgMult),
-      fireRate: Math.round(recipe.result.fireRate / frMult),
-      bulletSpeed: recipe.result.bulletSpeed ? Math.round(recipe.result.bulletSpeed * dmgMult) : 0,
-      range: Math.round(recipe.result.range * (base ? oldW.range / base.range : 1)),
-      level: oldW.level,
-      lastFired: 0,
-    };
-    this.player.weapons[idx] = evolved;
-    AudioManager.evolve();
-    this.hud.announce(`进化! ${recipe.resultName}!`);
-    this.cameras.main.flash(300, 255, 255, 100);
-    this.shakeScreen(300, 0.015);
   }
 
   private onWaveClear() {
@@ -428,47 +407,62 @@ export class GameScene extends Phaser.Scene {
     this.rerollCount = 0;
     this.shopUI.show(
       this.player.stats, this.player.weapons, this.player.ownedItems,
-      this.rerollCount, this.shopCallbacks
+      this.rerollCount, this.shopCallbacks, this.wave
     );
   }
 
   private get shopCallbacks(): ShopCallback {
     return {
       buyWeapon: (w) => {
-        this.player.addWeapon(w);
+        const result = this.player.addWeapon(w);
+        if (result === null) return;
         this.closeShopAndNextWave();
       },
       buyItem: (itemId) => {
         this.player.ownedItems.add(itemId);
         const item = ITEMS.find(i => i.id === itemId);
         if (item?.apply) item.apply(this.player.stats, this.player.weapons);
-        this.checkEvolutions(itemId);
         this.closeShopAndNextWave();
       },
-      buyHpSmall: () => {
-        this.player.heal(30);
+      buyConsumable: (type) => {
+        if (type === "grenade") {
+          this.player.addGrenade(1);
+        } else if (type === "firstAid") {
+          this.player.heal(25);
+        }
         this.closeShopAndNextWave();
       },
       sellWeapon: (idx) => {
         if (idx < 0 || idx >= this.player.weapons.length) return;
-        const w = this.player.weapons[idx];
-        this.player.stats.materials += Math.max(1, Math.round(w.cost * 0.5));
-        this.player.weapons.splice(idx, 1);
-        if (this.player.activeWeaponIdx >= this.player.weapons.length) {
-          this.player.activeWeaponIdx = 0;
-        }
+        this.player.stats.materials += this.player.calcSellValue(idx);
+        this.player.removeWeapon(idx);
         this.shopUI.show(
           this.player.stats, this.player.weapons, this.player.ownedItems,
-          this.rerollCount, this.shopCallbacks
+          this.rerollCount, this.shopCallbacks, this.wave
         );
       },
+      upgradeWeapon: (idx, type) => {
+        const cost = 30 + (this.player.weapons[idx]?.upgradeCount || 0) * 15;
+        if (this.player.stats.materials < cost) return;
+        if (this.player.upgradeWeapon(idx, type)) {
+          this.player.stats.materials -= cost;
+          this.shopUI.show(
+            this.player.stats, this.player.weapons, this.player.ownedItems,
+            this.rerollCount, this.shopCallbacks, this.wave
+          );
+        }
+      },
+      replaceWeapon: (idx, w) => {
+        this.player.replaceWeapon(idx, w);
+        this.closeShopAndNextWave();
+      },
       reroll: () => {
-        const cost = calcRerollCost(this.player.stats.level, this.rerollCount);
+        const cost = calcRerollCost(this.wave, this.rerollCount);
         this.player.stats.materials -= cost;
         this.rerollCount++;
         this.shopUI.show(
           this.player.stats, this.player.weapons, this.player.ownedItems,
-          this.rerollCount, this.shopCallbacks
+          this.rerollCount, this.shopCallbacks, this.wave
         );
       },
       nextWave: () => {
@@ -607,12 +601,18 @@ export class GameScene extends Phaser.Scene {
     e.setData("killed", true);
     this.effects.deathEffect(e.x, e.y);
     const eType = e.getData("type") as string;
-    const mult = e.getData("dropMult") as number || 1;
-    const xpGain = XP_PER_KILL[eType as keyof typeof XP_PER_KILL] || 5;
-    this.spawnDrop(e.x, e.y, mult, xpGain);
+    const xpGain = XP_PER_KILL[eType as keyof typeof XP_PER_KILL] || 1;
+    if (Math.random() < 0.6) this.spawnDrop(e.x, e.y, xpGain);
     this.shakeScreen(80, 0.005);
 
     this.enemiesAlive--;
+
+    if (this.player.stats.healPerWave > 0) {
+      this.player.heal(this.player.stats.healPerWave);
+    }
+    if (Math.random() < 0.08) {
+      this.player.stats.materials += 1;
+    }
 
     if (this.player.charId === "berserker") {
       this.player.heal(5);
@@ -649,8 +649,8 @@ export class GameScene extends Phaser.Scene {
     if (idx !== -1) this.activeEnemies.splice(idx, 1);
   }
 
-  private spawnDrop(x: number, y: number, mult: number, xpAmount: number) {
-    const value = Math.round(Phaser.Math.Between(1, 3) * mult);
+  private spawnDrop(x: number, y: number, xpAmount: number) {
+    const value = Math.min(5, 1 + Math.floor(this.wave / 5));
     const drop = this.materialPool.get(x, y, "material") as Phaser.GameObjects.Image | null;
     if (!drop) return;
     drop.setDepth(10);
@@ -670,11 +670,14 @@ export class GameScene extends Phaser.Scene {
     const distToTarget = Phaser.Math.Distance.Between(this.player.x, this.player.y, nearest.x, nearest.y);
     if (distToTarget > w.range) return;
 
+    const atkBonus = 1 + this.player.stats.attackBonus;
+    const baseDmg = Math.round(w.damage * atkBonus);
+
     if (w.weaponType === "melee") {
       const nearby = this.enemyMgr.getEnemiesInRange(this.player.x, this.player.y, w.range);
       if (nearby.length === 0) return;
       w.lastFired = time;
-      const meleeDmg = Math.round(w.damage * this.player.abilityDmgMult);
+      const meleeDmg = Math.round(baseDmg * this.player.abilityDmgMult);
       for (const e of nearby) {
         const hp = (e.getData("hp") as number) - meleeDmg;
         e.setData("hp", hp);
@@ -697,7 +700,7 @@ export class GameScene extends Phaser.Scene {
 
     for (let i = 0; i < w.bulletCount; i++) {
       const a = startAngle + w.spread * i * Math.PI / 180;
-      const bullet = this.projectileMgr.fireBullet(this.player.x, this.player.y, a, w.bulletSpeed, w.damage, w.range, w.splashRadius, w.penetrate, texKey);
+      const bullet = this.projectileMgr.fireBullet(this.player.x, this.player.y, a, w.bulletSpeed, baseDmg, w.range, w.splashRadius, w.penetrate, texKey);
       if (bullet && isFreeze) bullet.setData("weaponId", "freeze");
     }
 

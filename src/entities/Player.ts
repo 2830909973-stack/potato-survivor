@@ -5,6 +5,8 @@ import { MetaProgress } from "../utils/MetaProgress";
 import { AudioManager } from "../utils/AudioManager";
 
 export class Player {
+  static readonly GRENADE_MAX = 5;
+
   sprite: Phaser.Physics.Arcade.Sprite;
   stats: PlayerStats;
   weapons: Weapon[];
@@ -38,6 +40,9 @@ export class Player {
   readonly grenadeCooldownDuration = 8000;
   abilityCooldownDuration: number;
 
+  berserkActive = false;
+  berserkTimer = 0;
+
   constructor(scene: Phaser.Scene, character?: Character) {
     this.scene = scene;
 
@@ -52,23 +57,17 @@ export class Player {
       };
       this.weapons = character.startWeapons.map(id => {
         const wc = WEAPON_CONFIGS.find(w => w.id === id) || WEAPON_CONFIGS[0];
-        return { ...wc, level: 1, lastFired: 0 };
+        return { ...wc, level: 1, lastFired: 0, upgradeCount: 0 };
       });
       character.passive(this.stats, this.weapons);
       MetaProgress.applyUpgrades(this.stats);
-      const metaDmg = MetaProgress.dmgMult;
-      if (metaDmg > 1) {
-        for (const w of this.weapons) w.damage = Math.round(w.damage * metaDmg);
-      }
+      this.stats.attackBonus += Math.max(0, MetaProgress.dmgMult - 1);
     } else {
       this.stats = { ...BASE_STATS, hp: BASE_STATS.maxHp };
       MetaProgress.applyUpgrades(this.stats);
       const wc = WEAPON_CONFIGS[0];
-      this.weapons = [{ ...wc, level: 1, lastFired: 0 }];
-      const metaDmg = MetaProgress.dmgMult;
-      if (metaDmg > 1) {
-        for (const w of this.weapons) w.damage = Math.round(w.damage * metaDmg);
-      }
+      this.weapons = [{ ...wc, level: 1, lastFired: 0, upgradeCount: 0 }];
+      this.stats.attackBonus += Math.max(0, MetaProgress.dmgMult - 1);
     }
 
     const texKey = character ? `player_${character.id}` : "player_merc";
@@ -103,6 +102,8 @@ export class Player {
     this.powerActive = [false, false];
     this.powerTimers = [0, 0];
     this.powerOriginalDodge = 0;
+    this.berserkActive = false;
+    this.berserkTimer = 0;
   }
 
   applyAdrenaline() {
@@ -155,6 +156,18 @@ export class Player {
         this.stats.hp = Math.min(this.stats.maxHp, this.stats.hp + 3);
       }
     }
+    if (this.berserkActive) {
+      this.berserkTimer -= delta;
+      if (this.berserkTimer <= 0) {
+        this.berserkActive = false;
+        this.berserkTimer = 0;
+      }
+    }
+  }
+
+  get berserkMult(): number {
+    if (!this.berserkActive) return 1;
+    return 1 + this.stats.berserkDamageBonus;
   }
 
   switchWeapon() {
@@ -168,7 +181,8 @@ export class Player {
     if (time - this.iFrameTimer < 500) return false;
     if (this.stats.dodge > 0 && Math.random() < this.stats.dodge) return false;
     this.iFrameTimer = time;
-    this.stats.hp -= Math.max(1, amount - this.stats.armor);
+    const reduced = Math.max(0, amount - this.stats.armor - this.stats.damageReduction);
+    this.stats.hp -= Math.max(1, reduced);
     this.flashDamage();
     if (this.stats.hp <= 0) {
       this.stats.hp = 0;
@@ -185,12 +199,49 @@ export class Player {
     const existing = this.weapons.find(we => we.id === w.id);
     if (existing) {
       existing.level++;
-      existing.damage = Math.round(existing.damage * 1.15);
-      existing.fireRate = Math.round(existing.fireRate * 0.92);
+      this.stats.attackBonus += 0.05;
+      existing.fireRate = Math.round(existing.fireRate * 0.95);
       return;
     }
-    if (this.weapons.length >= MAX_WEAPONS) return;
-    this.weapons.push({ ...w, level: 1, lastFired: 0 });
+    if (this.weapons.length >= MAX_WEAPONS) return null;
+    this.weapons.push({ ...w, level: 1, lastFired: 0, upgradeCount: 0 });
+    return this.weapons[this.weapons.length - 1];
+  }
+
+  replaceWeapon(idx: number, w: Weapon) {
+    if (idx < 0 || idx >= this.weapons.length) return;
+    this.weapons[idx] = { ...w, level: 1, lastFired: 0, upgradeCount: 0 };
+  }
+
+  calcSellValue(idx: number): number {
+    if (idx < 0 || idx >= this.weapons.length) return 0;
+    const w = this.weapons[idx];
+    return Math.max(1, Math.round(w.cost * 0.4) + (w.upgradeCount || 0) * 2);
+  }
+
+  removeWeapon(idx: number) {
+    if (idx < 0 || idx >= this.weapons.length) return;
+    this.weapons.splice(idx, 1);
+    if (this.activeWeaponIdx >= this.weapons.length) {
+      this.activeWeaponIdx = Math.max(0, this.weapons.length - 1);
+    }
+  }
+
+  upgradeWeapon(idx: number, type: "damage" | "fireRate"): boolean {
+    if (idx < 0 || idx >= this.weapons.length) return false;
+    const w = this.weapons[idx];
+    if ((w.upgradeCount || 0) >= 5) return false;
+    w.upgradeCount = (w.upgradeCount || 0) + 1;
+    if (type === "damage") {
+      w.damage = Math.round(w.damage * 1.1);
+    } else {
+      w.fireRate = Math.round(w.fireRate * 0.92);
+    }
+    return true;
+  }
+
+  addGrenade(count: number) {
+    this.grenadeCount = Math.min(Player.GRENADE_MAX, this.grenadeCount + count);
   }
 
   addPower(powerCfg: PowerConfig): number {
@@ -251,7 +302,7 @@ export class Player {
     while (this.stats.xp >= this.stats.xpToNext) {
       this.stats.xp -= this.stats.xpToNext;
       this.stats.level++;
-      this.stats.xpToNext = 30 + this.stats.level * 20;
+      this.stats.xpToNext = this.stats.level * 10 + 5;
       leveled++;
     }
     return leveled;

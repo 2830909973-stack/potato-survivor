@@ -1,4 +1,4 @@
-import { PlayerStats, Weapon, WeaponConfig, Rarity, ShopItem, BodyPartUpgrade, WaveConfig, EnemyType, EvolutionRecipe, PowerConfig, Character } from "./types";
+import { PlayerStats, Weapon, WeaponConfig, Rarity, ShopItem, BodyPartUpgrade, WaveConfig, EnemyType, PowerConfig, Character } from "./types";
 
 export const PART_NAMES: Record<string, string> = { head: "头部", chest: "胸部", legs: "腿部", weapon: "武器" };
 export const PART_COLORS: Record<string, string> = { head: "#f80", chest: "#f44", legs: "#4f8", weapon: "#8cf" };
@@ -11,13 +11,13 @@ export const RARITIES: Rarity[] = [
 ];
 
 export const WEAPON_CONFIGS: WeaponConfig[] = [
-  { id: "pistol", name: "手枪", damage: 12, fireRate: 350, bulletCount: 1, spread: 0, bulletSpeed: 400, range: 300, weaponType: "ranged", cost: 0 },
-  { id: "smg", name: "冲锋枪", damage: 4, fireRate: 80, bulletCount: 1, spread: 8, bulletSpeed: 380, range: 250, weaponType: "ranged", cost: 30 },
-  { id: "shotgun", name: "霰弹枪", damage: 8, fireRate: 700, bulletCount: 5, spread: 15, bulletSpeed: 350, range: 120, weaponType: "ranged", cost: 30 },
+  { id: "pistol", name: "手枪", damage: 10, fireRate: 400, bulletCount: 1, spread: 0, bulletSpeed: 400, range: 400, weaponType: "ranged", cost: 0 },
+  { id: "smg", name: "冲锋枪", damage: 6, fireRate: 150, bulletCount: 1, spread: 8, bulletSpeed: 380, range: 350, weaponType: "ranged", cost: 30 },
+  { id: "shotgun", name: "霰弹枪", damage: 12, fireRate: 700, bulletCount: 3, spread: 15, bulletSpeed: 350, range: 300, weaponType: "ranged", cost: 30 },
   { id: "sniper", name: "狙击枪", damage: 50, fireRate: 1000, bulletCount: 1, spread: 0, bulletSpeed: 700, range: 500, weaponType: "ranged", cost: 30 },
-  { id: "rifle", name: "步枪", damage: 15, fireRate: 300, bulletCount: 1, spread: 3, bulletSpeed: 450, range: 350, weaponType: "ranged", cost: 20 },
+  { id: "rifle", name: "步枪", damage: 18, fireRate: 500, bulletCount: 1, spread: 3, bulletSpeed: 450, range: 600, weaponType: "ranged", cost: 20 },
   { id: "rocket", name: "火箭筒", damage: 80, fireRate: 1500, bulletCount: 1, spread: 0, bulletSpeed: 350, range: 400, weaponType: "ranged", cost: 35, splashRadius: 80 },
-  { id: "fireaxe", name: "消防斧", damage: 22, fireRate: 900, bulletCount: 0, spread: 0, bulletSpeed: 0, range: 65, weaponType: "melee", cost: 15 },
+  { id: "fireaxe", name: "消防斧", damage: 25, fireRate: 900, bulletCount: 0, spread: 0, bulletSpeed: 0, range: 120, weaponType: "melee", cost: 15 },
   { id: "crowbar", name: "撬棍", damage: 16, fireRate: 600, bulletCount: 0, spread: 0, bulletSpeed: 0, range: 60, weaponType: "melee", cost: 12 },
   { id: "machete", name: "砍刀", damage: 12, fireRate: 400, bulletCount: 0, spread: 0, bulletSpeed: 0, range: 55, weaponType: "melee", cost: 10 },
   { id: "laser", name: "激光枪", damage: 3, fireRate: 50, bulletCount: 1, spread: 0, bulletSpeed: 600, range: 350, weaponType: "ranged", cost: 35, penetrate: 3 },
@@ -25,13 +25,13 @@ export const WEAPON_CONFIGS: WeaponConfig[] = [
 ];
 
 export const ITEMS: ShopItem[] = [
-  { id: "coffee", name: "咖啡", desc: "射速+10%  伤害-8%", cost: 15, type: "item", apply: (s, w) => { w.forEach(we => { we.fireRate = Math.round(we.fireRate * 0.9); we.damage = Math.round(we.damage * 0.92); }); } },
+  { id: "coffee", name: "咖啡", desc: "射速+10%  攻击+5%", cost: 15, type: "item", apply: (s, w) => { w.forEach(we => we.fireRate = Math.round(we.fireRate * 0.9)); s.attackBonus += 0.05; } },
   { id: "medkit", name: "医疗包", desc: "回复40HP  最大HP-10", cost: 12, type: "item", apply: (s) => { s.maxHp = Math.max(20, s.maxHp - 10); s.hp = Math.min(s.maxHp, s.hp + 40); } },
   { id: "shoes", name: "跑鞋", desc: "移速+20  护甲-1", cost: 10, type: "item", apply: (s) => { s.speed += 20; s.armor = Math.max(0, s.armor - 1); } },
   { id: "shield", name: "铁盾", desc: "护甲+2  移速-10", cost: 18, type: "item", apply: (s) => { s.armor += 2; s.speed = Math.max(20, s.speed - 10); } },
-  { id: "clover", name: "幸运草", desc: "经验+15%  伤害-5%", cost: 14, type: "item", apply: (s, w) => { s.xpMult = 1.15; w.forEach(we => we.damage = Math.round(we.damage * 0.95)); } },
+  { id: "clover", name: "幸运草", desc: "经验+15%  攻击+5%", cost: 14, type: "item", apply: (s, w) => { s.xpMult = 1.15; s.attackBonus += 0.05; } },
   { id: "foldingStock", name: "折叠枪托", desc: "移速+15  射速-5%", cost: 10, type: "item", apply: (s, w) => { s.speed += 15; w.forEach(we => we.fireRate = Math.round(we.fireRate * 1.05)); } },
-  { id: "coolant", name: "冷却液", desc: "冰冻射速+20%  冰冻伤害-15%", cost: 14, type: "item", apply: (s, w) => { w.forEach(we => { if (we.id === "freeze" || we.id === "evolved_freeze") { we.fireRate = Math.round(we.fireRate * 0.8); we.damage = Math.round(we.damage * 0.85); } }); } },
+  { id: "coolant", name: "冷却液", desc: "冰冻射速+20%", cost: 14, type: "item", apply: (s, w) => { w.forEach(we => { if (we.id === "freeze" || we.id === "evolved_freeze") we.fireRate = Math.round(we.fireRate * 0.8); }); } },
 ];
 
 export interface DifficultyTier {
@@ -69,12 +69,13 @@ export const POWER_CONFIGS: PowerConfig[] = [
 
 
 export const BASE_STATS: PlayerStats = {
-  speed: 200, maxHp: 100, hp: 100, armor: 0, materials: 0, level: 1, xp: 0, xpToNext: 30,
-  critChance: 0, dodge: 0, hpRegen: false, pickupRangeBonus: 0,
+  speed: 200, maxHp: 100, hp: 100, armor: 0, materials: 0, level: 1, xp: 0, xpToNext: 15,
+  critChance: 0, dodge: 0, hpRegen: false, pickupRangeBonus: 0, attackBonus: 0,
+  damageReduction: 0, criticalDamageBonus: 0, healPerWave: 0, berserkDamageBonus: 0,
 };
 
 export const XP_PER_KILL: Record<EnemyType, number> = {
-  normal: 5, fast: 3, tank: 10, ranged: 8, charger: 6, exploder: 12, healer: 6, invisible: 4,
+  normal: 1, fast: 1, tank: 3, ranged: 2, charger: 1, exploder: 2, healer: 1, invisible: 1,
 };
 
 export const BODY_UPGRADES: BodyPartUpgrade[] = [
@@ -90,20 +91,83 @@ export const BODY_UPGRADES: BodyPartUpgrade[] = [
   { id: "pickupRange", part: "legs", name: "长臂", desc: "拾取范围 +15", tier: 1, apply: (s) => { s.pickupRangeBonus += 15; } },
   { id: "dodgeSmall", part: "legs", name: "灵巧", desc: "闪避 +3%", tier: 2, apply: (s) => { s.dodge += 0.03; } },
   { id: "dodgeLarge", part: "legs", name: "残影", desc: "闪避 +5%", tier: 3, apply: (s) => { s.dodge += 0.05; } },
-  { id: "dmgSmall", part: "weapon", name: "利刃", desc: "伤害 +3", tier: 1, apply: (s, w) => w.forEach(we => we.damage += 3) },
+  { id: "dmgSmall", part: "weapon", name: "利刃", desc: "攻击 +8%", tier: 1, apply: (s) => { s.attackBonus += 0.08; } },
   { id: "fireRateSmall", part: "weapon", name: "连射", desc: "射速 +40ms", tier: 1, apply: (s, w) => w.forEach(we => we.fireRate = Math.max(50, we.fireRate - 40)) },
 ];
 
 export const ENEMY_CONFIG = {
-  normal: { hp: 45, speed: 100, tint: 0xff4444, scale: 1, dropMult: 1 },
-  fast: { hp: 15, speed: 140, tint: 0xffff44, scale: 0.7, dropMult: 1 },
-  tank: { hp: 80, speed: 50, tint: 0xaa44ff, scale: 1.5, dropMult: 2 },
-  ranged: { hp: 20, speed: 60, tint: 0x44ff44, scale: 0.8, dropMult: 2 },
-  charger: { hp: 25, speed: 160, tint: 0xff6644, scale: 1, dropMult: 1 },
-  exploder: { hp: 60, speed: 40, tint: 0xff8800, scale: 1.2, dropMult: 3 },
-  healer: { hp: 35, speed: 80, tint: 0x44ffaa, scale: 1, dropMult: 2 },
-  invisible: { hp: 20, speed: 120, tint: 0x888888, scale: 0.9, dropMult: 1 },
+  normal: { tint: 0xff4444, scale: 0.8, dropMult: 1 },
+  fast: { tint: 0xffff44, scale: 0.6, dropMult: 1 },
+  tank: { tint: 0xaa44ff, scale: 1.2, dropMult: 3 },
+  ranged: { tint: 0x44ff44, scale: 0.7, dropMult: 2 },
+  charger: { tint: 0xff6644, scale: 1, dropMult: 1 },
+  exploder: { tint: 0xff8800, scale: 1.2, dropMult: 2 },
+  healer: { tint: 0x44ffaa, scale: 1, dropMult: 1 },
+  invisible: { tint: 0x888888, scale: 0.9, dropMult: 1 },
 };
+
+export function calcEnemyStats(type: EnemyType, wave: number) {
+  const waveScale = 1 + (wave - 1) * 0.12;
+  const maxSpeed = 250;
+  switch (type) {
+    case "normal":
+      return {
+        hp: Math.round(20 * waveScale),
+        speed: Math.min(120, Math.round(40 + wave * 1.2), maxSpeed),
+        contactDamage: Math.round(6 + wave * 0.8),
+        xp: 1,
+      };
+    case "fast":
+      return {
+        hp: Math.round(10 * waveScale),
+        speed: Math.min(180, Math.round(80 + wave * 1.5), maxSpeed),
+        contactDamage: Math.round(4 + wave * 0.5),
+        xp: 1,
+      };
+    case "tank":
+      return {
+        hp: Math.round(60 * waveScale * 1.5),
+        speed: Math.min(60, Math.round(20 + wave * 0.5), maxSpeed),
+        contactDamage: Math.round(10 + wave * 1.2),
+        xp: 3,
+      };
+    case "ranged":
+      return {
+        hp: Math.round(15 * waveScale),
+        speed: Math.min(50, Math.round(20 + wave * 0.5), maxSpeed),
+        contactDamage: Math.round(8 + wave * 0.6),
+        xp: 2,
+      };
+    case "charger":
+      return {
+        hp: Math.round(15 * waveScale),
+        speed: Math.min(180, Math.round(80 + wave * 1.5), maxSpeed),
+        contactDamage: Math.round(8 + wave * 1.0),
+        xp: 1,
+      };
+    case "exploder":
+      return {
+        hp: Math.round(40 * waveScale),
+        speed: Math.min(120, Math.round(40 + wave * 1.2), maxSpeed),
+        contactDamage: Math.round(16 + wave * 1.0),
+        xp: 2,
+      };
+    case "healer":
+      return {
+        hp: Math.round(24 * waveScale),
+        speed: Math.min(60, Math.round(20 + wave * 0.6), maxSpeed),
+        contactDamage: Math.round(6 + wave * 0.8),
+        xp: 1,
+      };
+    case "invisible":
+      return {
+        hp: Math.round(8 * waveScale),
+        speed: Math.min(210, Math.round(110 + wave * 1.5), maxSpeed),
+        contactDamage: Math.round(4 + wave * 0.5),
+        xp: 1,
+      };
+  }
+}
 
 function generateWaveConfig(wave: number): WaveConfig {
   const hpMult = 0.8 + wave * 0.06;
@@ -127,9 +191,9 @@ function generateWaveConfig(wave: number): WaveConfig {
 
 export const WAVE_CONFIGS: WaveConfig[] = Array.from({ length: 20 }, (_, i) => generateWaveConfig(i + 1));
 
-export function calcRerollCost(level: number, rerollCount: number): number {
-  const wave = Math.max(1, level);
-  return Math.max(1, Math.round(wave * 0.75) + rerollCount * Math.max(1, Math.round(wave * 0.4)));
+export function calcRerollCost(wave: number, rerollCount: number): number {
+  const base = 3 + Math.floor(wave / 3);
+  return Math.max(1, base + rerollCount * 2);
 }
 
 export function getWaveDuration(wave: number): number {
@@ -162,6 +226,7 @@ export function applyRarityToWeapon(wc: WeaponConfig, rarity: Rarity): Weapon {
     weaponType: wc.weaponType,
     level: 1,
     lastFired: 0,
+    upgradeCount: 0,
   };
 }
 
@@ -179,63 +244,7 @@ export const BOSS_DATA: Record<number, BossStats> = {
   20: { name: "毁灭巨兽", hpMult: 40, speed: 45, scale: 4, tint: 0xff4400, dropMult: 30 },
 };
 
-export const EVOLUTIONS: EvolutionRecipe[] = [
-  {
-    weaponId: "shotgun", itemId: "shield",
-    resultName: "爆炸护盾",
-    result: { id: "evolved_shotgun", name: "爆炸护盾", damage: 12, fireRate: 600, bulletCount: 5, spread: 15, bulletSpeed: 350, range: 140, cost: 0, weaponType: "ranged", splashRadius: 60 },
-  },
-  {
-    weaponId: "sniper", itemId: "clover",
-    resultName: "死神之眼",
-    result: { id: "evolved_sniper", name: "死神之眼", damage: 50, fireRate: 800, bulletCount: 1, spread: 0, bulletSpeed: 800, range: 600, cost: 0, weaponType: "ranged", penetrate: 3 },
-  },
-  {
-    weaponId: "smg", itemId: "coffee",
-    resultName: "加特林",
-    result: { id: "evolved_smg", name: "加特林", damage: 3, fireRate: 60, bulletCount: 3, spread: 18, bulletSpeed: 350, range: 250, cost: 0, weaponType: "ranged" },
-  },
-  {
-    weaponId: "fireaxe", itemId: "shoes",
-    resultName: "旋风斩",
-    result: { id: "evolved_fireaxe", name: "旋风斩", damage: 30, fireRate: 700, bulletCount: 0, spread: 0, bulletSpeed: 0, range: 130, cost: 0, weaponType: "melee" },
-  },
-  {
-    weaponId: "rifle", itemId: "foldingStock",
-    resultName: "突击步枪",
-    result: { id: "evolved_rifle", name: "突击步枪", damage: 20, fireRate: 220, bulletCount: 1, spread: 3, bulletSpeed: 500, range: 380, cost: 0, weaponType: "ranged" },
-  },
-  {
-    weaponId: "pistol", itemId: "medkit",
-    resultName: "医疗手枪",
-    result: { id: "evolved_pistol", name: "医疗手枪", damage: 8, fireRate: 250, bulletCount: 1, spread: 0, bulletSpeed: 400, range: 350, cost: 0, weaponType: "ranged" },
-  },
-  {
-    weaponId: "rocket", itemId: "shield",
-    resultName: "爆破护盾",
-    result: { id: "evolved_rocket", name: "爆破护盾", damage: 60, fireRate: 1200, bulletCount: 1, spread: 0, bulletSpeed: 350, range: 450, cost: 0, weaponType: "ranged", splashRadius: 100 },
-  },
-  {
-    weaponId: "crowbar", itemId: "clover",
-    resultName: "幸运撬棍",
-    result: { id: "evolved_crowbar", name: "幸运撬棍", damage: 25, fireRate: 500, bulletCount: 0, spread: 0, bulletSpeed: 0, range: 70, cost: 0, weaponType: "melee" },
-  },
-  {
-    weaponId: "machete", itemId: "foldingStock",
-    resultName: "战术砍刀",
-    result: { id: "evolved_machete", name: "战术砍刀", damage: 18, fireRate: 300, bulletCount: 0, spread: 0, bulletSpeed: 0, range: 60, cost: 0, weaponType: "melee" },
-  },
-  {
-    weaponId: "laser", itemId: "coffee",
-    resultName: "激光炮",
-    result: { id: "evolved_laser", name: "激光炮", damage: 6, fireRate: 40, bulletCount: 2, spread: 1, bulletSpeed: 650, range: 400, penetrate: 5, weaponType: "ranged", cost: 0 },
-  },
-  {
-    weaponId: "freeze", itemId: "clover",
-    resultName: "暴风雪",
-    result: { id: "evolved_freeze", name: "暴风雪", damage: 12, fireRate: 300, bulletCount: 3, spread: 20, bulletSpeed: 300, range: 280, splashRadius: 50, weaponType: "ranged", cost: 0 },
-  },
-];
+
 
 export interface BiomeDef {
   name: string;
@@ -275,7 +284,7 @@ export const CHARACTERS: Character[] = [
     id: "merc", name: "雇佣兵", hpMult: 1, speedMult: 1,
     startWeapons: ["rifle"],
     desc: "均衡型角色，适合新手",
-    passive: (s, w) => { for (const we of w) we.damage = Math.round(we.damage * 1.1); },
+    passive: (s) => { s.attackBonus += 0.1; },
     abilityName: "精准射击", abilityDesc: "6秒内100%暴击",
     abilityCooldown: 15000, abilityDuration: 6000,
   },
