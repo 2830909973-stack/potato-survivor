@@ -1,4 +1,4 @@
-import { PlayerStats, Weapon, WeaponConfig, Mod, Rarity, ShopItem, BodyPartUpgrade, WaveConfig, EnemyType, EvolutionRecipe, PowerConfig, Character } from "./types";
+import { PlayerStats, Weapon, WeaponConfig, Rarity, ShopItem, BodyPartUpgrade, WaveConfig, EnemyType, EvolutionRecipe, PowerConfig, Character } from "./types";
 
 export const PART_NAMES: Record<string, string> = { head: "头部", chest: "胸部", legs: "腿部", weapon: "武器" };
 export const PART_COLORS: Record<string, string> = { head: "#f80", chest: "#f44", legs: "#4f8", weapon: "#8cf" };
@@ -11,17 +11,17 @@ export const RARITIES: Rarity[] = [
 ];
 
 export const WEAPON_CONFIGS: WeaponConfig[] = [
-  { id: "pistol", name: "手枪", damage: 12, fireRate: 350, bulletCount: 1, spread: 0, bulletSpeed: 400, range: 300, ammoMax: 15, reloadTime: 1000, weaponType: "ranged", cost: 0 },
-  { id: "smg", name: "冲锋枪", damage: 4, fireRate: 80, bulletCount: 1, spread: 8, bulletSpeed: 380, range: 250, ammoMax: 30, reloadTime: 1600, weaponType: "ranged", cost: 30 },
-  { id: "shotgun", name: "霰弹枪", damage: 8, fireRate: 700, bulletCount: 5, spread: 15, bulletSpeed: 350, range: 120, ammoMax: 6, reloadTime: 2200, weaponType: "ranged", cost: 30 },
-  { id: "sniper", name: "狙击枪", damage: 50, fireRate: 1000, bulletCount: 1, spread: 0, bulletSpeed: 700, range: 500, ammoMax: 6, reloadTime: 2200, penetrate: 1, weaponType: "ranged", cost: 30 },
-  { id: "rifle", name: "步枪", damage: 15, fireRate: 300, bulletCount: 1, spread: 3, bulletSpeed: 450, range: 350, ammoMax: 20, reloadTime: 1800, weaponType: "ranged", cost: 20 },
-  { id: "rocket", name: "火箭筒", damage: 80, fireRate: 1500, bulletCount: 1, spread: 0, bulletSpeed: 350, range: 400, ammoMax: 2, reloadTime: 3000, splashRadius: 80, weaponType: "ranged", cost: 35 },
-  { id: "fireaxe", name: "消防斧", damage: 22, fireRate: 900, bulletCount: 0, spread: 0, bulletSpeed: 0, range: 65, ammoMax: 0, reloadTime: 0, weaponType: "melee", cost: 15 },
-  { id: "crowbar", name: "撬棍", damage: 16, fireRate: 600, bulletCount: 0, spread: 0, bulletSpeed: 0, range: 60, ammoMax: 0, reloadTime: 0, weaponType: "melee", cost: 12 },
-  { id: "machete", name: "砍刀", damage: 12, fireRate: 400, bulletCount: 0, spread: 0, bulletSpeed: 0, range: 55, ammoMax: 0, reloadTime: 0, weaponType: "melee", cost: 10 },
-  { id: "laser", name: "激光枪", damage: 3, fireRate: 50, bulletCount: 1, spread: 0, bulletSpeed: 600, range: 350, ammoMax: 60, reloadTime: 2000, penetrate: 3, weaponType: "ranged", cost: 35 },
-  { id: "freeze", name: "冰冻枪", damage: 8, fireRate: 400, bulletCount: 1, spread: 4, bulletSpeed: 350, range: 250, ammoMax: 12, reloadTime: 1800, weaponType: "ranged", cost: 30 },
+  { id: "pistol", name: "手枪", damage: 12, fireRate: 350, bulletCount: 1, spread: 0, bulletSpeed: 400, range: 300, weaponType: "ranged", cost: 0 },
+  { id: "smg", name: "冲锋枪", damage: 4, fireRate: 80, bulletCount: 1, spread: 8, bulletSpeed: 380, range: 250, weaponType: "ranged", cost: 30 },
+  { id: "shotgun", name: "霰弹枪", damage: 8, fireRate: 700, bulletCount: 5, spread: 15, bulletSpeed: 350, range: 120, weaponType: "ranged", cost: 30 },
+  { id: "sniper", name: "狙击枪", damage: 50, fireRate: 1000, bulletCount: 1, spread: 0, bulletSpeed: 700, range: 500, weaponType: "ranged", cost: 30 },
+  { id: "rifle", name: "步枪", damage: 15, fireRate: 300, bulletCount: 1, spread: 3, bulletSpeed: 450, range: 350, weaponType: "ranged", cost: 20 },
+  { id: "rocket", name: "火箭筒", damage: 80, fireRate: 1500, bulletCount: 1, spread: 0, bulletSpeed: 350, range: 400, weaponType: "ranged", cost: 35, splashRadius: 80 },
+  { id: "fireaxe", name: "消防斧", damage: 22, fireRate: 900, bulletCount: 0, spread: 0, bulletSpeed: 0, range: 65, weaponType: "melee", cost: 15 },
+  { id: "crowbar", name: "撬棍", damage: 16, fireRate: 600, bulletCount: 0, spread: 0, bulletSpeed: 0, range: 60, weaponType: "melee", cost: 12 },
+  { id: "machete", name: "砍刀", damage: 12, fireRate: 400, bulletCount: 0, spread: 0, bulletSpeed: 0, range: 55, weaponType: "melee", cost: 10 },
+  { id: "laser", name: "激光枪", damage: 3, fireRate: 50, bulletCount: 1, spread: 0, bulletSpeed: 600, range: 350, weaponType: "ranged", cost: 35, penetrate: 3 },
+  { id: "freeze", name: "冰冻枪", damage: 8, fireRate: 400, bulletCount: 1, spread: 4, bulletSpeed: 350, range: 250, weaponType: "ranged", cost: 30 },
 ];
 
 export const ITEMS: ShopItem[] = [
@@ -31,7 +31,6 @@ export const ITEMS: ShopItem[] = [
   { id: "shield", name: "铁盾", desc: "护甲+2  移速-10", cost: 18, type: "item", apply: (s) => { s.armor += 2; s.speed = Math.max(20, s.speed - 10); } },
   { id: "clover", name: "幸运草", desc: "经验+15%  伤害-5%", cost: 14, type: "item", apply: (s, w) => { s.xpMult = 1.15; w.forEach(we => we.damage = Math.round(we.damage * 0.95)); } },
   { id: "foldingStock", name: "折叠枪托", desc: "移速+15  射速-5%", cost: 10, type: "item", apply: (s, w) => { s.speed += 15; w.forEach(we => we.fireRate = Math.round(we.fireRate * 1.05)); } },
-  { id: "energyCell", name: "能量电池", desc: "激光弹容量+50%  激光伤害-15%", cost: 16, type: "item", apply: (s, w) => { w.forEach(we => { if (we.id === "laser" || we.id === "evolved_laser") { we.ammoMax = Math.round(we.ammoMax * 1.5); we.damage = Math.round(we.damage * 0.85); } }); } },
   { id: "coolant", name: "冷却液", desc: "冰冻射速+20%  冰冻伤害-15%", cost: 14, type: "item", apply: (s, w) => { w.forEach(we => { if (we.id === "freeze" || we.id === "evolved_freeze") { we.fireRate = Math.round(we.fireRate * 0.8); we.damage = Math.round(we.damage * 0.85); } }); } },
 ];
 
@@ -67,35 +66,7 @@ export const POWER_CONFIGS: PowerConfig[] = [
   { id: "lifeDrain", name: "生命汲取", desc: "吸取敌人生命并回复", cooldown: 12000, maxLevel: 5, baseDamage: 10, baseDuration: 5000, cost: 22 },
 ];
 
-export const MOD_CONFIGS: Mod[] = [
-  { id: "silencer", name: "消音器", desc: "伤害 +15%", cost: 12,
-    apply: (w) => { w.damage = Math.round(w.damage * 1.15); },
-    remove: (w) => { w.damage = Math.round(w.damage / 1.15); } },
-  { id: "extendedMag", name: "扩容弹匣", desc: "弹容量 +50%", cost: 10,
-    apply: (w) => { w.ammoMax = Math.round(w.ammoMax * 1.5); },
-    remove: (w) => { w.ammoMax = Math.round(w.ammoMax / 1.5); w.ammo = Math.min(w.ammo, w.ammoMax); } },
-  { id: "redDot", name: "红点瞄准", desc: "射程 +15%, 散射 -30%", cost: 14,
-    apply: (w) => { w.range = Math.round(w.range * 1.15); w.spread = Math.round(w.spread * 0.7); },
-    remove: (w) => { w.range = Math.round(w.range / 1.15); w.spread = Math.round(w.spread / 0.7); } },
-  { id: "stock", name: "稳定枪托", desc: "射速 +10%", cost: 15,
-    apply: (w) => { w.fireRate = Math.round(w.fireRate * 0.9); },
-    remove: (w) => { w.fireRate = Math.round(w.fireRate / 0.9); } },
-  { id: "apAmmo", name: "穿甲弹", desc: "伤害 +10%, 无视护甲", cost: 16,
-    apply: (w) => { w.damage = Math.round(w.damage * 1.1); },
-    remove: (w) => { w.damage = Math.round(w.damage / 1.1); } },
-  { id: "quickReload", name: "快速换弹", desc: "换弹时间 -25%", cost: 11,
-    apply: (w) => { w.reloadTime = Math.round(w.reloadTime * 0.75); },
-    remove: (w) => { w.reloadTime = Math.round(w.reloadTime / 0.75); } },
-  { id: "compensator", name: "补偿器", desc: "散射 -40%", cost: 12,
-    apply: (w) => { w.spread = Math.round(w.spread * 0.6); },
-    remove: (w) => { w.spread = Math.round(w.spread / 0.6); } },
-  { id: "hpScope", name: "高倍镜", desc: "射程 +30%, 射速 -10%", cost: 18,
-    apply: (w) => { w.range = Math.round(w.range * 1.3); w.fireRate = Math.round(w.fireRate * 1.1); },
-    remove: (w) => { w.range = Math.round(w.range / 1.3); w.fireRate = Math.round(w.fireRate / 1.1); } },
-  { id: "hollowPoint", name: "空尖弹", desc: "伤害 +20%, 射程 -10%", cost: 14,
-    apply: (w) => { w.damage = Math.round(w.damage * 1.2); w.range = Math.round(w.range * 0.9); },
-    remove: (w) => { w.damage = Math.round(w.damage / 1.2); w.range = Math.round(w.range / 0.9); } },
-];
+
 
 export const BASE_STATS: PlayerStats = {
   speed: 200, maxHp: 100, hp: 100, armor: 0, materials: 0, level: 1, xp: 0, xpToNext: 30,
@@ -121,8 +92,6 @@ export const BODY_UPGRADES: BodyPartUpgrade[] = [
   { id: "dodgeLarge", part: "legs", name: "残影", desc: "闪避 +5%", tier: 3, apply: (s) => { s.dodge += 0.05; } },
   { id: "dmgSmall", part: "weapon", name: "利刃", desc: "伤害 +3", tier: 1, apply: (s, w) => w.forEach(we => we.damage += 3) },
   { id: "fireRateSmall", part: "weapon", name: "连射", desc: "射速 +40ms", tier: 1, apply: (s, w) => w.forEach(we => we.fireRate = Math.max(50, we.fireRate - 40)) },
-  { id: "ammoInc", part: "weapon", name: "扩容", desc: "弹匣 +15%", tier: 2, apply: (s, w) => w.forEach(we => { we.ammoMax = Math.round(we.ammoMax * 1.15); we.ammo = Math.min(we.ammo, we.ammoMax); }) },
-  { id: "reloadSpeed", part: "weapon", name: "快速换弹", desc: "换弹 -15%", tier: 2, apply: (s, w) => w.forEach(we => we.reloadTime = Math.round(we.reloadTime * 0.85)) },
 ];
 
 export const ENEMY_CONFIG = {
@@ -190,15 +159,9 @@ export function applyRarityToWeapon(wc: WeaponConfig, rarity: Rarity): Weapon {
     bulletSpeed: Math.round(wc.bulletSpeed * rarity.statMult),
     range: Math.round(wc.range * rarity.statMult),
     cost: Math.round(wc.cost * rarity.costMult),
-    ammoMax: wc.ammoMax,
-    reloadTime: wc.reloadTime,
     weaponType: wc.weaponType,
     level: 1,
     lastFired: 0,
-    ammo: wc.ammoMax,
-    reloading: false,
-    reloadTimer: 0,
-    mods: [],
   };
 }
 
@@ -220,57 +183,57 @@ export const EVOLUTIONS: EvolutionRecipe[] = [
   {
     weaponId: "shotgun", itemId: "shield",
     resultName: "爆炸护盾",
-    result: { id: "evolved_shotgun", name: "爆炸护盾", damage: 12, fireRate: 600, bulletCount: 5, spread: 15, bulletSpeed: 350, range: 140, cost: 0, ammoMax: 6, reloadTime: 2200, weaponType: "ranged", splashRadius: 60 },
+    result: { id: "evolved_shotgun", name: "爆炸护盾", damage: 12, fireRate: 600, bulletCount: 5, spread: 15, bulletSpeed: 350, range: 140, cost: 0, weaponType: "ranged", splashRadius: 60 },
   },
   {
     weaponId: "sniper", itemId: "clover",
     resultName: "死神之眼",
-    result: { id: "evolved_sniper", name: "死神之眼", damage: 50, fireRate: 800, bulletCount: 1, spread: 0, bulletSpeed: 800, range: 600, cost: 0, ammoMax: 8, reloadTime: 1800, weaponType: "ranged", penetrate: 3 },
+    result: { id: "evolved_sniper", name: "死神之眼", damage: 50, fireRate: 800, bulletCount: 1, spread: 0, bulletSpeed: 800, range: 600, cost: 0, weaponType: "ranged", penetrate: 3 },
   },
   {
     weaponId: "smg", itemId: "coffee",
     resultName: "加特林",
-    result: { id: "evolved_smg", name: "加特林", damage: 3, fireRate: 60, bulletCount: 3, spread: 18, bulletSpeed: 350, range: 250, cost: 0, ammoMax: 40, reloadTime: 2500, weaponType: "ranged" },
+    result: { id: "evolved_smg", name: "加特林", damage: 3, fireRate: 60, bulletCount: 3, spread: 18, bulletSpeed: 350, range: 250, cost: 0, weaponType: "ranged" },
   },
   {
     weaponId: "fireaxe", itemId: "shoes",
     resultName: "旋风斩",
-    result: { id: "evolved_fireaxe", name: "旋风斩", damage: 30, fireRate: 700, bulletCount: 0, spread: 0, bulletSpeed: 0, range: 130, ammoMax: 0, reloadTime: 0, cost: 0, weaponType: "melee" },
+    result: { id: "evolved_fireaxe", name: "旋风斩", damage: 30, fireRate: 700, bulletCount: 0, spread: 0, bulletSpeed: 0, range: 130, cost: 0, weaponType: "melee" },
   },
   {
     weaponId: "rifle", itemId: "foldingStock",
     resultName: "突击步枪",
-    result: { id: "evolved_rifle", name: "突击步枪", damage: 20, fireRate: 220, bulletCount: 1, spread: 3, bulletSpeed: 500, range: 380, cost: 0, ammoMax: 25, reloadTime: 1500, weaponType: "ranged" },
+    result: { id: "evolved_rifle", name: "突击步枪", damage: 20, fireRate: 220, bulletCount: 1, spread: 3, bulletSpeed: 500, range: 380, cost: 0, weaponType: "ranged" },
   },
   {
     weaponId: "pistol", itemId: "medkit",
     resultName: "医疗手枪",
-    result: { id: "evolved_pistol", name: "医疗手枪", damage: 8, fireRate: 250, bulletCount: 1, spread: 0, bulletSpeed: 400, range: 350, cost: 0, ammoMax: 20, reloadTime: 900, weaponType: "ranged" },
+    result: { id: "evolved_pistol", name: "医疗手枪", damage: 8, fireRate: 250, bulletCount: 1, spread: 0, bulletSpeed: 400, range: 350, cost: 0, weaponType: "ranged" },
   },
   {
     weaponId: "rocket", itemId: "shield",
     resultName: "爆破护盾",
-    result: { id: "evolved_rocket", name: "爆破护盾", damage: 60, fireRate: 1200, bulletCount: 1, spread: 0, bulletSpeed: 350, range: 450, cost: 0, ammoMax: 3, reloadTime: 2800, weaponType: "ranged", splashRadius: 100 },
+    result: { id: "evolved_rocket", name: "爆破护盾", damage: 60, fireRate: 1200, bulletCount: 1, spread: 0, bulletSpeed: 350, range: 450, cost: 0, weaponType: "ranged", splashRadius: 100 },
   },
   {
     weaponId: "crowbar", itemId: "clover",
     resultName: "幸运撬棍",
-    result: { id: "evolved_crowbar", name: "幸运撬棍", damage: 25, fireRate: 500, bulletCount: 0, spread: 0, bulletSpeed: 0, range: 70, ammoMax: 0, reloadTime: 0, cost: 0, weaponType: "melee" },
+    result: { id: "evolved_crowbar", name: "幸运撬棍", damage: 25, fireRate: 500, bulletCount: 0, spread: 0, bulletSpeed: 0, range: 70, cost: 0, weaponType: "melee" },
   },
   {
     weaponId: "machete", itemId: "foldingStock",
     resultName: "战术砍刀",
-    result: { id: "evolved_machete", name: "战术砍刀", damage: 18, fireRate: 300, bulletCount: 0, spread: 0, bulletSpeed: 0, range: 60, ammoMax: 0, reloadTime: 0, cost: 0, weaponType: "melee" },
+    result: { id: "evolved_machete", name: "战术砍刀", damage: 18, fireRate: 300, bulletCount: 0, spread: 0, bulletSpeed: 0, range: 60, cost: 0, weaponType: "melee" },
   },
   {
     weaponId: "laser", itemId: "coffee",
     resultName: "激光炮",
-    result: { id: "evolved_laser", name: "激光炮", damage: 6, fireRate: 40, bulletCount: 2, spread: 1, bulletSpeed: 650, range: 400, ammoMax: 80, reloadTime: 2500, penetrate: 5, weaponType: "ranged", cost: 0 },
+    result: { id: "evolved_laser", name: "激光炮", damage: 6, fireRate: 40, bulletCount: 2, spread: 1, bulletSpeed: 650, range: 400, penetrate: 5, weaponType: "ranged", cost: 0 },
   },
   {
     weaponId: "freeze", itemId: "clover",
     resultName: "暴风雪",
-    result: { id: "evolved_freeze", name: "暴风雪", damage: 12, fireRate: 300, bulletCount: 3, spread: 20, bulletSpeed: 300, range: 280, ammoMax: 18, reloadTime: 2000, splashRadius: 50, weaponType: "ranged", cost: 0 },
+    result: { id: "evolved_freeze", name: "暴风雪", damage: 12, fireRate: 300, bulletCount: 3, spread: 20, bulletSpeed: 300, range: 280, splashRadius: 50, weaponType: "ranged", cost: 0 },
   },
 ];
 
@@ -320,7 +283,7 @@ export const CHARACTERS: Character[] = [
     id: "spec", name: "特种兵", hpMult: 0.9, speedMult: 1.1,
     startWeapons: ["smg"],
     desc: "高机动性，冲锋枪专精",
-    passive: (s, w) => { for (const we of w) we.reloadTime = Math.round(we.reloadTime * 0.8); },
+    passive: (s, w) => { for (const we of w) we.fireRate = Math.round(we.fireRate * 0.9); },
     abilityName: "速射", abilityDesc: "4秒内射速翻倍",
     abilityCooldown: 18000, abilityDuration: 4000,
   },

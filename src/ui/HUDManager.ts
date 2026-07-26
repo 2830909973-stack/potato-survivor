@@ -269,7 +269,6 @@ export class HUDManager {
     stats: PlayerStats,
     weapons: Weapon[],
     activeIdx: number,
-    reloading: boolean,
     wave: number,
     waveTimer: number,
     grenadeCount: number,
@@ -286,7 +285,7 @@ export class HUDManager {
     this.updateWaveMat(stats, wave);
     this.updateXP(stats);
     this.updateEnemyCount(enemyCount);
-    this.updateWeapon(weapons, activeIdx, reloading);
+    this.updateWeapon(weapons, activeIdx);
     this.updateGrenade(grenadeCount, grenadeCooldown);
     this.updatePowerCircles(powers, powerCds, powerActive);
     this.updateAbility(abilityCd);
@@ -338,31 +337,14 @@ export class HUDManager {
     this.enemyCountText.setText(`👾 剩余: ${count}`);
   }
 
-  private updateWeapon(weapons: Weapon[], idx: number, reloading: boolean) {
+  private updateWeapon(weapons: Weapon[], idx: number) {
     const w = weapons[idx];
     if (w) {
       this.weaponNameText.setText(`★ ${w.name}`);
-      if (reloading) {
-        this.weaponAmmoText.setText("换弹中...");
-        this.weaponAmmoText.setColor(GOLD);
-        this.stopAmmoFlash();
-      } else if (w.weaponType === "melee") {
-        this.weaponAmmoText.setText("近战");
-        this.weaponAmmoText.setColor(GRAY);
-        this.stopAmmoFlash();
-      } else {
-        this.weaponAmmoText.setText(`${w.ammo}/${w.ammoMax}`);
-        if (w.ammo <= 0) {
-          this.weaponAmmoText.setColor(RED);
-          this.startAmmoFlash();
-        } else if (w.ammo <= 5) {
-          this.weaponAmmoText.setColor("#ffaa00");
-          this.stopAmmoFlash();
-        } else {
-          this.weaponAmmoText.setColor(WHITE);
-          this.stopAmmoFlash();
-        }
-      }
+      const isMelee = w.weaponType === "melee";
+      this.weaponAmmoText.setText(isMelee ? "近战" : `伤害${w.damage} · 射速${w.fireRate}ms`);
+      this.weaponAmmoText.setColor(GRAY);
+      this.stopAmmoFlash();
     }
   }
 

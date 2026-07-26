@@ -1,9 +1,9 @@
 ﻿import Phaser from "phaser";
-import { Weapon, SpawnRule, W, H, PICKUP_RANGE, Power, MAX_POWERS, PowerConfig, Character, EnemyType, WaveConfig } from "../types";
+import { Weapon, W, H, PICKUP_RANGE, Power, MAX_POWERS, PowerConfig, Character, EnemyType } from "../types";
 import { Settings, DEFAULT_KEY_BINDINGS } from "../utils/Settings";
 import { SettingsUI } from "../ui/SettingsUI";
 import { VictoryUI } from "../ui/VictoryUI";
-import { WAVE_CONFIGS, getWaveDuration, calcRerollCost, ITEMS, XP_PER_KILL, BOSS_DATA, EVOLUTIONS, getBiome, DIFFICULTY_TIERS } from "../config";
+import { calcRerollCost, ITEMS, XP_PER_KILL, EVOLUTIONS, getBiome, DIFFICULTY_TIERS, ENEMY_CONFIG, randomEdgePos } from "../config";
 import { AudioManager } from "../utils/AudioManager";
 import { Achievements } from "../utils/Achievements";
 import { MetaProgress } from "../utils/MetaProgress";
@@ -27,15 +27,24 @@ export class GameScene extends Phaser.Scene {
   private victoryUI!: VictoryUI;
   private effects!: EffectsManager;
 
-  private wave = 0;
-  private waveTimer = 0;
+  private wave = 1;
+  private enemiesInWave = 0;
+  private enemiesSpawned = 0;
+  private enemiesAlive = 0;
+  private isWaveActive = false;
+  private isWaveDelay = true;
+  private waveDelayTimer = 0;
+  private spawnTimer = 0;
+  private spawnInterval = 800;
+  private attackCooldown = 0;
+  private materialDropRate = 0.6;
+  private activeEnemies: Phaser.Physics.Arcade.Sprite[] = [];
+
   private gameOver = false;
   private paused = false;
   private inShop = false;
   private levelingUp = false;
-  private bossActive = false;
 
-  private spawnRules: SpawnRule[] = [];
   private pendingLevelUps = 0;
   private rerollCount = 0;
   private stats_kills = 0;
@@ -43,7 +52,6 @@ export class GameScene extends Phaser.Scene {
   private stats_peakAlive = 0;
   private stats_materialsEarned = 0;
   private dropList: Phaser.GameObjects.Image[] = [];
-  private debt = 0;
   private materialPool!: Phaser.GameObjects.Group;
 
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
@@ -78,14 +86,21 @@ export class GameScene extends Phaser.Scene {
     this.difficultyLevel = Phaser.Math.Clamp(diffId, 0, DIFFICULTY_TIERS.length - 1);
     this.difficultyDmgMult = DIFFICULTY_TIERS[this.difficultyLevel].dmgMult;
 
-    this.wave = 0;
+    this.wave = 1;
+    this.enemiesInWave = 0;
+    this.enemiesSpawned = 0;
+    this.enemiesAlive = 0;
+    this.isWaveActive = false;
+    this.isWaveDelay = true;
+    this.waveDelayTimer = 0;
+    this.spawnTimer = 0;
+    this.spawnInterval = 800;
+    this.attackCooldown = 0;
+    this.activeEnemies = [];
     this.gameOver = false;
     this.paused = false;
     this.inShop = false;
     this.levelingUp = false;
-    this.waveTimer = 0;
-    this.bossActive = false;
-    this.spawnRules = [];
     this.pendingLevelUps = 0;
     this.rerollCount = 0;
     this.stats_kills = 0;
@@ -93,7 +108,6 @@ export class GameScene extends Phaser.Scene {
     this.stats_peakAlive = 0;
     this.stats_materialsEarned = 0;
     this.dropList = [];
-    this.debt = 0;
     this.player.resetState();
 
     this.pauseContainer = this.add.container(0, 0).setVisible(false).setDepth(200);
@@ -118,7 +132,7 @@ export class GameScene extends Phaser.Scene {
     );
 
     this.showControlsHint();
-    this.startNextWave();
+    this.startWave();
   }
 
   private showControlsHint() {
@@ -136,27 +150,41 @@ export class GameScene extends Phaser.Scene {
   update(time: number, delta: number) {
     if (this.gameOver || this.inShop || this.levelingUp || this.paused) return;
 
-    this.waveTimer -= delta;
-    if (this.waveTimer <= 0) {
-      this.onWaveTimeout();
-      return;
+    this.player.update(time, delta);
+
+    this.handleMovement();
+
+    this.attackCooldown -= delta;
+    if (this.attackCooldown <= 0 && this.isWaveActive) {
+      this.autoShoot(time);
+      const w = this.player.activeWeapon;
+      if (w) this.attackCooldown = w.fireRate;
     }
 
-    this.player.update(time, delta);
-    this.player.handleInput(this.cursors);
+    if (this.isWaveActive && this.enemiesSpawned < this.enemiesInWave) {
+      this.spawnTimer -= delta;
+      if (this.spawnTimer <= 0) {
+        this.spawnEnemy();
+        this.spawnTimer = this.spawnInterval;
+      }
+    }
+
+    if (this.isWaveDelay) {
+      this.waveDelayTimer -= delta;
+      if (this.waveDelayTimer <= 0) {
+        this.isWaveDelay = false;
+        this.startWave();
+      }
+    }
 
     this.enemyMgr.moveAllToward(this.player.x, this.player.y, delta);
     this.enemyMgr.rangedShoot(time, this.projectileMgr.enemyBullets, this.player.x, this.player.y);
 
     this.projectileMgr.checkEnemyHits(this.player.x, this.player.y, time, this.player.iFrameTimer, (b) => this.onEnemyBulletHit(b));
-    this.projectileMgr.checkPlayerContact(this.enemyMgr.list, this.player.x, this.player.y, time, this.player.iFrameTimer, (e) => this.onPlayerContact(e));
+    this.projectileMgr.checkPlayerContact(this.activeEnemies, this.player.x, this.player.y, time, this.player.iFrameTimer, (e) => this.onPlayerContact(e));
     this.projectileMgr.cleanupOffscreen();
 
-    this.processSpawnSchedule(delta);
     this.checkPickup();
-    this.autoShoot(time);
-
-    this.enemyMgr.updateBosses(time, delta, this.player.x, this.player.y, this.projectileMgr.enemyBullets);
     this.checkControlledKills();
 
     if (this.player.invincible) {
@@ -168,18 +196,12 @@ export class GameScene extends Phaser.Scene {
       }
     }
     this.updatePowerAuras(delta);
-    const boss = this.enemyMgr.getBoss();
-    if (boss) {
-      const hp = boss.getData("hp") as number;
-      const maxHp = boss.getData("bossHpMax") as number;
-      const name = boss.getData("bossName") as string || "BOSS";
-      this.hud.showBossHP(name, hp, maxHp);
-    } else {
-      this.hud.hideBossHP();
+    this.hud.hideBossHP();
+
+    if (this.isWaveActive && this.enemiesAlive <= 0 && this.enemiesSpawned >= this.enemiesInWave) {
+      this.onWaveComplete();
     }
 
-    const w = this.player.activeWeapon;
-    const isReloading = w ? w.reloading : false;
     const buffs: { label: string; color: number }[] = [];
     if (this.player.abilityActive) {
       const abilityLabels: Record<string, string> = {
@@ -191,57 +213,35 @@ export class GameScene extends Phaser.Scene {
     if (this.player.invincible) buffs.push({ label: "无敌", color: 0xffaa00 });
     if (this.player.speedBuffTimer > 0) buffs.push({ label: "加速", color: 0x44aaff });
     if (this.player.fireRateBuffTimer > 0) buffs.push({ label: "速射", color: 0xff6644 });
-    this.hud.update(this.player.stats, this.player.weapons, this.player.activeWeaponIdx, isReloading, this.wave, this.waveTimer, this.player.grenadeCount, this.player.grenadeCooldown, this.enemyMgr.count, getWaveDuration(this.wave), this.player.abilityCooldown, this.player.powers, this.player.powerCooldowns, this.player.powerActive, buffs);
+    this.hud.update(this.player.stats, this.player.weapons, this.player.activeWeaponIdx, this.wave, 0, this.player.grenadeCount, this.player.grenadeCooldown, this.activeEnemies.filter(e => e.active).length, 0, this.player.abilityCooldown, this.player.powers, this.player.powerCooldowns, this.player.powerActive, buffs);
   }
 
-  private startNextWave() {
-    this.wave++;
-    this.waveTimer = getWaveDuration(this.wave);
-    this.bossActive = this.wave % 10 === 0;
-    this.spawnRules = [];
-    this.player.refillAmmo();
+  private handleMovement() {
+    const speed = Math.round(this.player.stats.speed * this.player.speedMult);
+    let vx = 0, vy = 0;
+    if (this.cursors.left.isDown || this.wasdKeys.A) vx -= 1;
+    if (this.cursors.right.isDown || this.wasdKeys.D) vx += 1;
+    if (this.cursors.up.isDown || this.wasdKeys.W) vy -= 1;
+    if (this.cursors.down.isDown || this.wasdKeys.S) vy += 1;
 
-    const diff = DIFFICULTY_TIERS[this.difficultyLevel];
-    const maxDefinedWave = WAVE_CONFIGS.length;
-    let cfg: WaveConfig;
-    if (this.wave <= maxDefinedWave) {
-      const base = WAVE_CONFIGS[this.wave - 1];
-      cfg = {
-        enemies: base.enemies,
-        speedMult: base.speedMult * diff.speedMult,
-        hpMult: base.hpMult * diff.hpMult,
-        eliteChance: base.eliteChance ?? 0.2,
-      };
+    if (vx !== 0) this.player.sprite.setFlipX(vx < 0);
+
+    if (vx !== 0 || vy !== 0) {
+      const len = Math.sqrt(vx * vx + vy * vy);
+      this.player.sprite.setVelocity((vx / len) * speed, (vy / len) * speed);
     } else {
-      const base = WAVE_CONFIGS[maxDefinedWave - 1];
-      const extraMult = 1 + (this.wave - maxDefinedWave) * 0.1;
-      cfg = {
-        enemies: base.enemies.map(e => ({ ...e, count: Math.round(e.count * extraMult) })),
-        speedMult: base.speedMult * extraMult * diff.speedMult,
-        hpMult: base.hpMult * extraMult * diff.hpMult,
-        eliteChance: Math.min(0.5, (base.eliteChance ?? 0.2) + (this.wave - maxDefinedWave) * 0.02),
-      };
+      this.player.sprite.setVelocity(0, 0);
     }
-    const waveDuration = getWaveDuration(this.wave);
-    const lastBatchTime = waveDuration - 2000;
+  }
 
-    cfg.enemies.forEach((eg, index) => {
-      const batchSize = Math.min(eg.count, 10);
-      const batches = Math.ceil(eg.count / batchSize);
-      const interval = batches > 1 ? Math.floor(lastBatchTime / batches) : lastBatchTime;
-      const firstDelay = 500 + index * 1000;
-      this.spawnRules.push({
-        type: eg.type, batchSize, interval,
-        timer: firstDelay, remaining: eg.count,
-      });
-    });
+  private startWave() {
+    this.enemiesInWave = Math.min(40, 6 + this.wave * 2);
+    this.enemiesSpawned = 0;
+    this.enemiesAlive = 0;
+    this.isWaveActive = true;
+    this.spawnInterval = Math.max(400, 800 - this.wave * 10);
+    this.spawnTimer = 1000;
 
-    if (this.bossActive && BOSS_DATA[this.wave]) {
-      this.spawnRules.push({ type: "tank", batchSize: 1, interval: 0, timer: Math.round(lastBatchTime * 0.5), remaining: 1, boss: true, dropMult: BOSS_DATA[this.wave].dropMult });
-    } else if (this.bossActive && this.wave > 20) {
-      const dynamicDropMult = 30 + Math.floor((this.wave - 20) / 5) * 5;
-      this.spawnRules.push({ type: "tank", batchSize: 1, interval: 0, timer: Math.round(lastBatchTime * 0.5), remaining: 1, boss: true, dropMult: dynamicDropMult });
-    }
     if (this.player.ownedItems.has("medkit")) {
       this.player.heal(20);
     }
@@ -249,40 +249,52 @@ export class GameScene extends Phaser.Scene {
     const biome = getBiome(this.wave);
     this.cameras.main.setBackgroundColor(biome.bgColor);
 
-    if (this.bossActive) AudioManager.bossWarning();
-    this.hud.announce(this.bossActive ? '[BOSS]' : 'Wave ' + this.wave + ' - ' + biome.name);
+    this.hud.announce('Wave ' + this.wave + ' - ' + biome.name);
     this.cameras.main.flash(200, 255, 255, 255);
   }
 
-  private processSpawnSchedule(delta: number) {
-    for (const rule of this.spawnRules) {
-      if (rule.remaining <= 0) continue;
-      rule.timer -= delta;
-      if (rule.timer > 0) continue;
-      const count = Math.min(rule.batchSize, rule.remaining);
-      this.enemyMgr.spawnGroup({
-        type: rule.type, count,
-        elite: rule.elite, boss: rule.boss, dropMult: rule.dropMult,
-      }, this.wave);
-      rule.remaining -= count;
-      if (rule.remaining > 0 && rule.interval > 0)
-        rule.timer += rule.interval;
-      else
-        rule.timer = Infinity;
-    }
+  private spawnEnemy() {
+    const types: EnemyType[] = ["normal"];
+    if (this.wave >= 2) types.push("fast");
+    if (this.wave >= 4) types.push("ranged");
+    if (this.wave >= 5) types.push("tank");
+    if (this.wave >= 8) types.push("charger");
+    if (this.wave >= 10) types.push("exploder");
+    if (this.wave >= 12) types.push("healer");
+    if (this.wave >= 14) types.push("invisible");
+
+    const type = types[Math.floor(Math.random() * types.length)];
+    const eCfg = ENEMY_CONFIG[type];
+    const diff = DIFFICULTY_TIERS[this.difficultyLevel];
+    const hpMult = (0.8 + this.wave * 0.06) * diff.hpMult;
+    const spdMult = (0.9 + this.wave * 0.04) * diff.speedMult;
+
+    const pos = randomEdgePos();
+    const texKey = this.enemyMgr.getTextureForType(type);
+    const e = this.enemyMgr.getFromPool(pos.x, pos.y, texKey);
+    if (!e) return;
+
+    e.setTint(eCfg.tint);
+    e.setData("hp", Math.round(eCfg.hp * hpMult));
+    e.setData("maxHp", Math.round(eCfg.hp * hpMult));
+    e.setData("speed", Math.round(eCfg.speed * spdMult));
+    e.setData("type", type);
+    e.setData("contactDamage", Math.round(5 + this.wave * 0.5));
+    e.setData("dropMult", eCfg.dropMult);
+    if (type === "charger") e.setData("chargeTimer", Phaser.Math.Between(500, 1000));
+
+    const finalScale = eCfg.scale;
+    e.setScale(0);
+    this.tweens.add({ targets: e, scaleX: finalScale, scaleY: finalScale, duration: 200, ease: "Back.easeOut" });
+
+    this.enemyMgr.addToList(e);
+    this.activeEnemies.push(e);
+    this.enemiesSpawned++;
+    this.enemiesAlive++;
   }
 
-  private onWaveTimeout() {
-    for (const enemy of this.enemyMgr.list) {
-      if (!enemy.active) continue;
-      this.effects.deathEffect(enemy.x, enemy.y);
-      const mult = enemy.getData("dropMult") as number || 1;
-      const eType = enemy.getData("type") as string;
-      const xpAmt = XP_PER_KILL[eType as keyof typeof XP_PER_KILL] || 5;
-      this.spawnDrop(enemy.x, enemy.y, mult, xpAmt);
-      this.enemyMgr.deactivateEnemy(enemy);
-    }
-    this.enemyMgr.list = [];
+  private onWaveComplete() {
+    this.isWaveActive = false;
     this.collectAllDrops();
     this.onWaveClear();
   }
@@ -294,11 +306,10 @@ export class GameScene extends Phaser.Scene {
       m.setActive(false).setVisible(false);
     }
     this.dropList = [];
-    this.debt += total;
     if (total > 0) {
       this.player.stats.materials += total;
       this.stats_materialsEarned += total;
-      const text = this.add.text(W / 2, H / 2, `+${total} 材料 (债务 ${this.debt})`, {
+      const text = this.add.text(W / 2, H / 2, `+${total} 材料`, {
         fontSize: "22px", color: "#0f8", fontStyle: "bold",
       }).setOrigin(0.5).setDepth(200);
       this.tweens.add({
@@ -325,10 +336,6 @@ export class GameScene extends Phaser.Scene {
       range: Math.round(recipe.result.range * (base ? oldW.range / base.range : 1)),
       level: oldW.level,
       lastFired: 0,
-      ammo: recipe.result.ammoMax,
-      reloading: false,
-      reloadTimer: 0,
-      mods: [...oldW.mods],
     };
     this.player.weapons[idx] = evolved;
     AudioManager.evolve();
@@ -339,13 +346,15 @@ export class GameScene extends Phaser.Scene {
 
   private onWaveClear() {
     if (this.gameOver) return;
-    if (this.wave >= 20 && !this.endlessMode) {
+    if (this.wave >= 30 && !this.endlessMode) {
       this.showVictory();
       return;
     }
-    if (this.wave >= 20 && this.endlessMode) {
+    if (this.wave >= 30 && this.endlessMode) {
       this.hud.announce(`无尽模式 · 第 ${this.wave} 波!`);
     }
+    this.isWaveDelay = true;
+    this.waveDelayTimer = 3000;
     if (this.pendingLevelUps > 0) {
       this.showLevelUpCards();
     } else {
@@ -469,7 +478,8 @@ export class GameScene extends Phaser.Scene {
     this.shopUI.hide();
     this.inShop = false;
     this.physics.resume();
-    this.startNextWave();
+    this.wave++;
+    this.startWave();
   }
 
   private showLevelUpCards() {
@@ -538,7 +548,7 @@ export class GameScene extends Phaser.Scene {
     const splashRadius = b.getData("splashRadius") as number | undefined;
     if (splashRadius) {
       const splashDmg = Math.round(dmg * 0.5);
-      this.projectileMgr.doSplashDamage(b.x, b.y, splashRadius, splashDmg, this.enemyMgr.list, (enemy, sdmg) => {
+      this.projectileMgr.doSplashDamage(b.x, b.y, splashRadius, splashDmg, this.activeEnemies, (enemy, sdmg) => {
         this.splashHitEnemy(enemy, sdmg);
       }, e);
       const splashCircle = this.add.circle(b.x, b.y, splashRadius, 0xff8800, 0.25).setDepth(35);
@@ -582,7 +592,8 @@ export class GameScene extends Phaser.Scene {
 
   private onPlayerContact(e: Phaser.Physics.Arcade.Sprite): boolean {
     AudioManager.hit();
-    const dead = this.player.takeDamage(Math.round(10 * this.difficultyDmgMult), this.time.now);
+    const dmg = (e.getData("contactDamage") as number) || 10;
+    const dead = this.player.takeDamage(Math.round(dmg * this.difficultyDmgMult), this.time.now);
     if (dead) { this.endGame(); return true; }
     this.shakeScreen(120, 0.008);
     return false;
@@ -597,6 +608,8 @@ export class GameScene extends Phaser.Scene {
     const xpGain = XP_PER_KILL[eType as keyof typeof XP_PER_KILL] || 5;
     this.spawnDrop(e.x, e.y, mult, xpGain);
     this.shakeScreen(80, 0.005);
+
+    this.enemiesAlive--;
 
     if (this.player.charId === "berserker") {
       this.player.heal(5);
@@ -625,20 +638,12 @@ export class GameScene extends Phaser.Scene {
     }
 
     this.stats_kills++;
-    this.stats_peakAlive = Math.max(this.stats_peakAlive, this.enemyMgr.count);
-    if (e.getData("boss")) {
-      this.stats_bossKills++;
-      AudioManager.explosion();
-      this.shakeScreen(300, 0.02);
-      this.cameras.main.flash(300, 255, 0, 0);
-      this.effects.deathEffect(e.x, e.y);
-      this.effects.deathEffect(e.x - 20, e.y - 20);
-      this.effects.deathEffect(e.x + 20, e.y + 20);
-    }
+    this.stats_peakAlive = Math.max(this.stats_peakAlive, this.activeEnemies.filter(a => a.active).length);
 
     this.enemyMgr.deactivateEnemy(e);
-    const idx = this.enemyMgr.list.indexOf(e);
-    if (idx !== -1) this.enemyMgr.list.splice(idx, 1);
+    this.enemyMgr.removeFromList(e);
+    const idx = this.activeEnemies.indexOf(e);
+    if (idx !== -1) this.activeEnemies.splice(idx, 1);
   }
 
   private spawnDrop(x: number, y: number, mult: number, xpAmount: number) {
@@ -657,7 +662,6 @@ export class GameScene extends Phaser.Scene {
 
     const w = this.player.activeWeapon;
     if (!w) return;
-    if (w.reloading) return;
     if (time - w.lastFired < w.fireRate) return;
 
     const distToTarget = Phaser.Math.Distance.Between(this.player.x, this.player.y, nearest.x, nearest.y);
@@ -680,13 +684,7 @@ export class GameScene extends Phaser.Scene {
       return;
     }
 
-    if (w.ammo <= 0) {
-      this.player.startReload(w);
-      return;
-    }
-
     w.lastFired = time;
-    w.ammo--;
 
     const angle = Phaser.Math.Angle.Between(this.player.x, this.player.y, nearest.x, nearest.y);
     const startAngle = angle - (w.spread * (w.bulletCount - 1)) / 2 * Math.PI / 180;
@@ -703,10 +701,6 @@ export class GameScene extends Phaser.Scene {
     AudioManager.shoot();
     const muzzle = this.add.circle(this.player.x, this.player.y, 8, 0xffff88, 1).setDepth(40);
     this.tweens.add({ targets: muzzle, alpha: 0, scaleX: 2, scaleY: 2, duration: 120, onComplete: () => muzzle.destroy() });
-
-    if (w.ammo <= 0) {
-      this.player.startReload(w);
-    }
   }
 
   private checkPickup() {
@@ -719,15 +713,8 @@ export class GameScene extends Phaser.Scene {
         AudioManager.pickup();
         const val = obj.getData("value") as number;
         const xpVal = obj.getData("xp") as number;
-        if (this.debt > 0) {
-          const bonus = Math.min(this.debt, val);
-          this.player.stats.materials += val + bonus;
-          this.stats_materialsEarned += val + bonus;
-          this.debt -= bonus;
-        } else {
-          this.player.stats.materials += val;
-          this.stats_materialsEarned += val;
-        }
+        this.player.stats.materials += val;
+        this.stats_materialsEarned += val;
         const leveled = this.player.awardXP(xpVal);
         this.pendingLevelUps += leveled;
         const text = this.add.text(obj.x, obj.y, `+${val}`, {
@@ -785,7 +772,7 @@ export class GameScene extends Phaser.Scene {
     AudioManager.stopBGM();
     this.physics.pause();
 
-    const won = this.wave >= 20;
+    const won = this.wave >= 30;
     if (won) {
       const nextDiff = this.difficultyLevel + 1;
       if (nextDiff < DIFFICULTY_TIERS.length) {
@@ -828,11 +815,11 @@ export class GameScene extends Phaser.Scene {
 
   private setupWASD() {
     const kb = this.input.keyboard!;
-    for (const k of ["A", "W", "S", "D"]) {
-      const key = kb.addKey(Phaser.Input.Keyboard.KeyCodes[k as keyof typeof Phaser.Input.Keyboard.KeyCodes]);
-      key.on("down", () => { this.player.wasd[k] = true; });
-      key.on("up", () => { this.player.wasd[k] = false; });
-    }
+    const KC = Phaser.Input.Keyboard.KeyCodes;
+    this.wasdKeys.A = kb.addKey(KC.A);
+    this.wasdKeys.W = kb.addKey(KC.W);
+    this.wasdKeys.S = kb.addKey(KC.S);
+    this.wasdKeys.D = kb.addKey(KC.D);
   }
 
   private pauseContainer!: Phaser.GameObjects.Container;
@@ -873,9 +860,8 @@ export class GameScene extends Phaser.Scene {
     const weaponLabel = this.add.text(statsX - 195, weaponY, "━ 武器 ━", { fontSize: "13px", color: "#ff0" });
     const wpLines = this.player.weapons.map((w, i) => {
       const active = i === this.player.activeWeaponIdx ? "★ " : "  ";
-      const ammoStr = w.weaponType === "ranged" ? ` ${w.ammo}/${w.ammoMax}` : "";
-      const modStr = w.mods.length > 0 ? ` [${w.mods.map(m => m.name).join(",")}]` : "";
-      return `${active}Lv.${w.level} ${w.name} 伤害${w.damage} 射速${w.fireRate}ms${ammoStr}${modStr}`;
+      const wpType = w.weaponType === "melee" ? "近战" : "远程";
+      return `${active}Lv.${w.level} ${w.name} [${wpType}] 伤害${w.damage} 射速${w.fireRate}ms`;
     });
     const weaponText = this.add.text(statsX - 195, weaponY + 20, wpLines.join("\n"), { fontSize: "12px", color: "#aaa", lineSpacing: 6 });
 
@@ -962,7 +948,6 @@ export class GameScene extends Phaser.Scene {
 
     const togglePauseKey = kb.addKey(keyNameToCode(bindings.pause));
     const switchKey = kb.addKey(keyNameToCode(bindings.switch));
-    const reloadKey = kb.addKey(keyNameToCode(bindings.reload));
     const grenadeKey = kb.addKey(keyNameToCode(bindings.grenade));
     const abilityKey = kb.addKey(keyNameToCode(bindings.ability));
     const power1Key = kb.addKey(keyNameToCode(bindings.power1));
@@ -970,12 +955,6 @@ export class GameScene extends Phaser.Scene {
 
     togglePauseKey.on("down", () => this.togglePause());
     switchKey.on("down", () => this.player.switchWeapon());
-    reloadKey.on("down", () => {
-      const w = this.player.activeWeapon;
-      if (w && !w.reloading && w.weaponType === "ranged" && w.ammo < w.ammoMax) {
-        this.player.startReload(w);
-      }
-    });
     grenadeKey.on("down", () => {
       if (this.player.grenadeCount <= 0 || this.player.grenadeCooldown > 0) return;
       this.player.grenadeCount--;
@@ -1044,7 +1023,7 @@ export class GameScene extends Phaser.Scene {
 
   private checkControlledKills() {
     const dead: Phaser.Physics.Arcade.Sprite[] = [];
-    for (const e of this.enemyMgr.list) {
+    for (const e of this.activeEnemies) {
       if (!e.active || e.getData("controlled")) continue;
       if ((e.getData("hp") as number) <= 0) dead.push(e);
     }

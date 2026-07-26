@@ -13,7 +13,7 @@ export class Player {
   ownedItems = new Set<string>();
   grenadeCount = 0;
   grenadeCooldown = 0;
-  wasd: Record<string, boolean> = { A: false, W: false, S: false, D: false };
+
   charId = "";
   abilityCooldown = 0;
   abilityActive = false;
@@ -52,7 +52,7 @@ export class Player {
       };
       this.weapons = character.startWeapons.map(id => {
         const wc = WEAPON_CONFIGS.find(w => w.id === id) || WEAPON_CONFIGS[0];
-        return { ...wc, level: 1, lastFired: 0, ammo: wc.ammoMax, reloading: false, reloadTimer: 0, mods: [] };
+        return { ...wc, level: 1, lastFired: 0 };
       });
       character.passive(this.stats, this.weapons);
       MetaProgress.applyUpgrades(this.stats);
@@ -64,7 +64,7 @@ export class Player {
       this.stats = { ...BASE_STATS, hp: BASE_STATS.maxHp };
       MetaProgress.applyUpgrades(this.stats);
       const wc = WEAPON_CONFIGS[0];
-      this.weapons = [{ ...wc, level: 1, lastFired: 0, ammo: wc.ammoMax, reloading: false, reloadTimer: 0, mods: [] }];
+      this.weapons = [{ ...wc, level: 1, lastFired: 0 }];
       const metaDmg = MetaProgress.dmgMult;
       if (metaDmg > 1) {
         for (const w of this.weapons) w.damage = Math.round(w.damage * metaDmg);
@@ -89,7 +89,7 @@ export class Player {
     this.ownedItems = new Set<string>();
     this.grenadeCount = 0;
     this.grenadeCooldown = 0;
-    this.wasd = { A: false, W: false, S: false, D: false };
+
     this.abilityCooldown = 0;
     this.abilityActive = false;
     this.abilityTimer = 0;
@@ -135,15 +135,6 @@ export class Player {
         }
       }
     }
-    for (const w of this.weapons) {
-      if (!w.reloading) continue;
-      w.reloadTimer -= delta;
-      if (w.reloadTimer <= 0) {
-        w.ammo = w.ammoMax;
-        w.reloading = false;
-        w.reloadTimer = 0;
-      }
-    }
     this.grenadeCooldown = Math.max(0, this.grenadeCooldown - delta);
     this.abilityCooldown = Math.max(0, this.abilityCooldown - delta);
     if (this.abilityActive) {
@@ -166,39 +157,10 @@ export class Player {
     }
   }
 
-  handleInput(cursors: Phaser.Types.Input.Keyboard.CursorKeys) {
-    const speed = Math.round(this.stats.speed * this.speedMult);
-    let vx = 0, vy = 0;
-    if (cursors.left.isDown || this.wasd.A) vx -= 1;
-    if (cursors.right.isDown || this.wasd.D) vx += 1;
-    if (cursors.up.isDown || this.wasd.W) vy -= 1;
-    if (cursors.down.isDown || this.wasd.S) vy += 1;
-
-    if (vx !== 0) this.sprite.setFlipX(vx < 0);
-
-    if (vx !== 0 || vy !== 0) {
-      const len = Math.sqrt(vx * vx + vy * vy);
-      this.sprite.setVelocity((vx / len) * speed, (vy / len) * speed);
-    } else {
-      this.sprite.setVelocity(0, 0);
-    }
-  }
-
   switchWeapon() {
     if (this.weapons.length < 2) return;
     this.activeWeaponIdx = this.activeWeaponIdx === 0 ? 1 : 0;
     AudioManager.switchWeapon();
-    const w = this.activeWeapon;
-    if (w && w.ammo <= 0 && w.weaponType === "ranged") {
-      this.startReload(w);
-    }
-  }
-
-  startReload(w?: Weapon) {
-    const weapon = w || this.activeWeapon;
-    if (!weapon || weapon.weaponType !== "ranged" || weapon.ammo >= weapon.ammoMax) return;
-    weapon.reloading = true;
-    weapon.reloadTimer = weapon.reloadTime;
   }
 
   takeDamage(amount: number, time: number): boolean {
@@ -228,14 +190,7 @@ export class Player {
       return;
     }
     if (this.weapons.length >= MAX_WEAPONS) return;
-    this.weapons.push({ ...w, level: 1, lastFired: 0, ammo: w.ammoMax, reloading: false, reloadTimer: 0, mods: [] });
-  }
-
-  addModToActive(mod: { apply: (w: Weapon) => void; remove: (w: Weapon) => void }) {
-    const w = this.activeWeapon;
-    if (!w) return;
-    mod.apply(w);
-    (w.mods as { apply: (w: Weapon) => void; remove: (w: Weapon) => void }[]).push(mod);
+    this.weapons.push({ ...w, level: 1, lastFired: 0 });
   }
 
   addPower(powerCfg: PowerConfig): number {
@@ -300,16 +255,6 @@ export class Player {
       leveled++;
     }
     return leveled;
-  }
-
-  refillAmmo() {
-    for (const w of this.weapons) {
-      if (w.weaponType === "ranged") {
-        w.ammo = w.ammoMax;
-        w.reloading = false;
-        w.reloadTimer = 0;
-      }
-    }
   }
 
   private lastFireRateMult = 1;

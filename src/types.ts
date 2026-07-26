@@ -47,15 +47,6 @@ export interface PlayerStats {
   xpMult?: number;
 }
 
-export interface Mod {
-  id: string;
-  name: string;
-  desc: string;
-  cost: number;
-  apply: (w: Weapon) => void;
-  remove: (w: Weapon) => void;
-}
-
 export interface Weapon {
   id: string;
   name: string;
@@ -66,20 +57,14 @@ export interface Weapon {
   bulletSpeed: number;
   range: number;
   cost: number;
-  ammoMax: number;
-  reloadTime: number;
   weaponType: "ranged" | "melee";
   splashRadius?: number;
   penetrate?: number;
   level: number;
   lastFired: number;
-  ammo: number;
-  reloading: boolean;
-  reloadTimer: number;
-  mods: Mod[];
 }
 
-export type WeaponConfig = Omit<Weapon, "lastFired" | "ammo" | "reloading" | "reloadTimer" | "level" | "mods">;
+export type WeaponConfig = Omit<Weapon, "lastFired" | "level">;
 
 export interface Character {
   id: string;
@@ -119,9 +104,8 @@ export interface ShopItem {
   name: string;
   desc: string;
   cost: number;
-  type: "stat" | "weapon" | "item" | "mod" | "consumable" | "power";
+  type: "stat" | "weapon" | "item" | "consumable" | "power";
   weapon?: Weapon;
-  mod?: Mod;
   powerCfg?: PowerConfig;
   rarity?: Rarity;
   rarityColor?: string;
