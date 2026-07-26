@@ -11,7 +11,7 @@ import { EffectsManager } from "../utils/EffectsManager";
 import { Player } from "../entities/Player";
 import { EnemyManager } from "../entities/EnemyManager";
 import { ProjectileManager } from "../entities/ProjectileManager";
-import { HUD } from "../ui/HUD";
+import { HUDManager } from "../ui/HUDManager";
 import { ShopUI, ShopCallback } from "../ui/ShopUI";
 import { LevelUpUI } from "../ui/LevelUpUI";
 import { GameOverUI } from "../ui/GameOverUI";
@@ -20,7 +20,7 @@ export class GameScene extends Phaser.Scene {
   private player!: Player;
   private enemyMgr!: EnemyManager;
   private projectileMgr!: ProjectileManager;
-  private hud!: HUD;
+  private hud!: HUDManager;
   private shopUI!: ShopUI;
   private levelUpUI!: LevelUpUI;
   private gameOverUI!: GameOverUI;
@@ -60,7 +60,10 @@ export class GameScene extends Phaser.Scene {
     this.player = new Player(this, charData);
     this.enemyMgr = new EnemyManager(this);
     this.projectileMgr = new ProjectileManager(this);
-    this.hud = new HUD(this);
+    this.hud = new HUDManager(this, {
+      onUseAbility: () => this.useAbility(),
+      onUsePower: (slot) => this.usePower(slot),
+    });
     this.shopUI = new ShopUI(this);
     this.levelUpUI = new LevelUpUI(this);
     this.gameOverUI = new GameOverUI(this);
