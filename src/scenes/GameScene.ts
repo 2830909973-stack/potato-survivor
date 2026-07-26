@@ -219,10 +219,10 @@ export class GameScene extends Phaser.Scene {
   private handleMovement() {
     const speed = Math.round(this.player.stats.speed * this.player.speedMult);
     let vx = 0, vy = 0;
-    if (this.cursors.left.isDown || this.wasdKeys.A) vx -= 1;
-    if (this.cursors.right.isDown || this.wasdKeys.D) vx += 1;
-    if (this.cursors.up.isDown || this.wasdKeys.W) vy -= 1;
-    if (this.cursors.down.isDown || this.wasdKeys.S) vy += 1;
+    if (this.cursors.left.isDown || this.wasdKeys.A.isDown) vx -= 1;
+    if (this.cursors.right.isDown || this.wasdKeys.D.isDown) vx += 1;
+    if (this.cursors.up.isDown || this.wasdKeys.W.isDown) vy -= 1;
+    if (this.cursors.down.isDown || this.wasdKeys.S.isDown) vy += 1;
 
     if (vx !== 0) this.player.sprite.setFlipX(vx < 0);
 
@@ -235,6 +235,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   private startWave() {
+    this.isWaveDelay = false;
     this.enemiesInWave = Math.min(40, 6 + this.wave * 2);
     this.enemiesSpawned = 0;
     this.enemiesAlive = 0;
