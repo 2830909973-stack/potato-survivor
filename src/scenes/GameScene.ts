@@ -3,7 +3,7 @@ import { Weapon, SpawnRule, W, H, PICKUP_RANGE, Power, MAX_POWERS, PowerConfig, 
 import { Settings, DEFAULT_KEY_BINDINGS } from "../utils/Settings";
 import { SettingsUI } from "../ui/SettingsUI";
 import { VictoryUI } from "../ui/VictoryUI";
-import { WAVE_CONFIGS, getWaveDuration, calcRerollCost, ITEMS, XP_PER_KILL, BOSS_DATA, CONSUMABLES, EVOLUTIONS, getBiome } from "../config";
+import { WAVE_CONFIGS, getWaveDuration, calcRerollCost, ITEMS, XP_PER_KILL, BOSS_DATA, CONSUMABLES, EVOLUTIONS, getBiome, DIFFICULTY_TIERS } from "../config";
 import { AudioManager } from "../utils/AudioManager";
 import { Achievements } from "../utils/Achievements";
 import { MetaProgress } from "../utils/MetaProgress";
@@ -43,13 +43,14 @@ export class GameScene extends Phaser.Scene {
   private stats_peakAlive = 0;
   private stats_materialsEarned = 0;
   private dropList: Phaser.GameObjects.Image[] = [];
-  private xpDropList: Phaser.GameObjects.Image[] = [];
+  private debt = 0;
   private materialPool!: Phaser.GameObjects.Group;
-  private xpPool!: Phaser.GameObjects.Group;
   private obstacles: Phaser.Physics.Arcade.StaticGroup | null = null;
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
   private settingsUI!: SettingsUI;
   private endlessMode = false;
+  private difficultyLevel = 1;
+  private difficultyDmgMult = 1;
 
   constructor() {
     super("GameScene");
@@ -71,8 +72,11 @@ export class GameScene extends Phaser.Scene {
     this.effects = new EffectsManager(this);
     this.settingsUI = new SettingsUI(this);
 
-    const sceneData = this.scene.settings.data as { character?: Character; endlessMode?: boolean } | undefined;
+    const sceneData = this.scene.settings.data as { character?: Character; endlessMode?: boolean; difficulty?: number } | undefined;
     this.endlessMode = sceneData?.endlessMode ?? false;
+    const diffId = sceneData?.difficulty ?? 1;
+    this.difficultyLevel = Phaser.Math.Clamp(diffId, 0, DIFFICULTY_TIERS.length - 1);
+    this.difficultyDmgMult = DIFFICULTY_TIERS[this.difficultyLevel].dmgMult;
 
     this.wave = 0;
     this.gameOver = false;
@@ -90,7 +94,7 @@ export class GameScene extends Phaser.Scene {
     this.stats_peakAlive = 0;
     this.stats_materialsEarned = 0;
     this.dropList = [];
-    this.xpDropList = [];
+    this.debt = 0;
     this.player.resetState();
 
     this.pauseContainer = this.add.container(0, 0).setVisible(false).setDepth(200);
@@ -104,7 +108,6 @@ export class GameScene extends Phaser.Scene {
     AudioManager.startBGM();
 
     this.materialPool = this.add.group({ classType: Phaser.GameObjects.Image, maxSize: 300 });
-    this.xpPool = this.add.group({ classType: Phaser.GameObjects.Image, maxSize: 300 });
     this.obstacles = this.physics.add.staticGroup();
     for (let i = 0; i < 8; i++) {
       const ox = Phaser.Math.Between(150, W - 150);
@@ -182,12 +185,7 @@ export class GameScene extends Phaser.Scene {
     this.projectileMgr.cleanupOffscreen();
 
     this.processSpawnSchedule(delta);
-    if (!this.bossPhase && this.spawnRules.every(r => r.remaining <= 0) && this.enemyMgr.count === 0) {
-      this.onWaveTimeout();
-      return;
-    }
     this.checkPickup();
-    this.checkXpPickup();
     this.autoShoot(time);
 
     this.enemyMgr.updateBosses(time, delta, this.player.x, this.player.y, this.projectileMgr.enemyBullets);
@@ -235,17 +233,24 @@ export class GameScene extends Phaser.Scene {
     this.spawnRules = [];
     this.player.refillAmmo();
 
+    const diff = DIFFICULTY_TIERS[this.difficultyLevel];
     const maxDefinedWave = WAVE_CONFIGS.length;
     let cfg: WaveConfig;
     if (this.wave <= maxDefinedWave) {
-      cfg = WAVE_CONFIGS[this.wave - 1];
+      const base = WAVE_CONFIGS[this.wave - 1];
+      cfg = {
+        enemies: base.enemies,
+        speedMult: base.speedMult * diff.speedMult,
+        hpMult: base.hpMult * diff.hpMult,
+        eliteChance: base.eliteChance ?? 0.2,
+      };
     } else {
       const base = WAVE_CONFIGS[maxDefinedWave - 1];
       const extraMult = 1 + (this.wave - maxDefinedWave) * 0.1;
       cfg = {
         enemies: base.enemies.map(e => ({ ...e, count: Math.round(e.count * extraMult) })),
-        speedMult: base.speedMult * extraMult,
-        hpMult: base.hpMult * extraMult,
+        speedMult: base.speedMult * extraMult * diff.speedMult,
+        hpMult: base.hpMult * extraMult * diff.hpMult,
         eliteChance: Math.min(0.5, (base.eliteChance ?? 0.2) + (this.wave - maxDefinedWave) * 0.02),
       };
     }
@@ -311,7 +316,9 @@ export class GameScene extends Phaser.Scene {
     for (const enemy of toRemove) {
       this.effects.deathEffect(enemy.x, enemy.y);
       const mult = enemy.getData("dropMult") as number || 1;
-      this.spawnMaterialDrop(enemy.x, enemy.y, mult);
+      const eType = enemy.getData("type") as string;
+      const xpAmt = XP_PER_KILL[eType as keyof typeof XP_PER_KILL] || 5;
+      this.spawnDrop(enemy.x, enemy.y, mult, xpAmt);
       this.enemyMgr.deactivateEnemy(enemy);
     }
     this.enemyMgr.list = this.enemyMgr.list.filter(e => e.getData("boss"));
@@ -331,7 +338,9 @@ export class GameScene extends Phaser.Scene {
       if (!enemy.active) continue;
       this.effects.deathEffect(enemy.x, enemy.y);
       const mult = enemy.getData("dropMult") as number || 1;
-      this.spawnMaterialDrop(enemy.x, enemy.y, mult);
+      const eType = enemy.getData("type") as string;
+      const xpAmt = XP_PER_KILL[eType as keyof typeof XP_PER_KILL] || 5;
+      this.spawnDrop(enemy.x, enemy.y, mult, xpAmt);
       this.enemyMgr.deactivateEnemy(enemy);
     }
     this.enemyMgr.list = [];
@@ -346,27 +355,17 @@ export class GameScene extends Phaser.Scene {
       m.setActive(false).setVisible(false);
     }
     this.dropList = [];
+    this.debt += total;
     if (total > 0) {
       this.player.stats.materials += total;
       this.stats_materialsEarned += total;
-      const text = this.add.text(W / 2, H / 2, `+${total} 材料`, {
-        fontSize: "24px", color: "#0f8", fontStyle: "bold",
+      const text = this.add.text(W / 2, H / 2, `+${total} 材料 (债务 ${this.debt})`, {
+        fontSize: "22px", color: "#0f8", fontStyle: "bold",
       }).setOrigin(0.5).setDepth(200);
       this.tweens.add({
         targets: text, y: text.y - 50, alpha: 0, duration: 1000,
         onComplete: () => text.destroy(),
       });
-    }
-
-    let totalXp = 0;
-    for (const orb of this.xpDropList) {
-      totalXp += orb.getData("xp") as number;
-      orb.setActive(false).setVisible(false);
-    }
-    this.xpDropList = [];
-    if (totalXp > 0) {
-      const leveled = this.player.awardXP(totalXp);
-      this.pendingLevelUps += leveled;
     }
   }
 
@@ -420,6 +419,11 @@ export class GameScene extends Phaser.Scene {
     AudioManager.stopBGM();
     this.physics.pause();
 
+    const nextDiff = this.difficultyLevel + 1;
+    if (nextDiff < DIFFICULTY_TIERS.length) {
+      MetaProgress.setUnlockedDifficulty(nextDiff);
+    }
+
     const newAchievements = Achievements.check({
       wave: this.wave, kills: this.stats_kills, bossKills: this.stats_bossKills,
       peakAlive: this.stats_peakAlive, materialsEarned: this.stats_materialsEarned,
@@ -463,8 +467,6 @@ export class GameScene extends Phaser.Scene {
     this.projectileMgr.clearAll();
     this.dropList.forEach(m => { if (m.active) m.setActive(false).setVisible(false); });
     this.dropList = [];
-    this.xpDropList.forEach(o => { if (o.active) o.setActive(false).setVisible(false); });
-    this.xpDropList = [];
     this.pauseContainer.removeAll(true);
     if (this.obstacles) this.obstacles.clear(true, true);
   }
@@ -654,7 +656,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   private onEnemyBulletHit(b: Phaser.Physics.Arcade.Sprite): boolean {
-    const dmg = b.getData("damage") as number;
+    const dmg = Math.round((b.getData("damage") as number) * this.difficultyDmgMult);
     AudioManager.hit();
     const dead = this.player.takeDamage(dmg, this.time.now);
     if (dead) { this.endGame(); return true; }
@@ -664,7 +666,7 @@ export class GameScene extends Phaser.Scene {
 
   private onPlayerContact(e: Phaser.Physics.Arcade.Sprite): boolean {
     AudioManager.hit();
-    const dead = this.player.takeDamage(10, this.time.now);
+    const dead = this.player.takeDamage(Math.round(10 * this.difficultyDmgMult), this.time.now);
     if (dead) { this.endGame(); return true; }
     this.shakeScreen(120, 0.008);
     return false;
@@ -674,8 +676,10 @@ export class GameScene extends Phaser.Scene {
     if (e.getData("killed")) return;
     e.setData("killed", true);
     this.effects.deathEffect(e.x, e.y);
+    const eType = e.getData("type") as string;
     const mult = e.getData("dropMult") as number || 1;
-    this.spawnMaterialDrop(e.x, e.y, mult);
+    const xpGain = XP_PER_KILL[eType as keyof typeof XP_PER_KILL] || 5;
+    this.spawnDrop(e.x, e.y, mult, xpGain);
     this.shakeScreen(80, 0.005);
 
     if (this.player.charId === "berserker") {
@@ -683,7 +687,6 @@ export class GameScene extends Phaser.Scene {
     }
 
     AudioManager.kill();
-    const eType = e.getData("type") as string;
     if (eType === "exploder") {
       AudioManager.explosion();
       const nearby = this.enemyMgr.getEnemiesInRange(e.x, e.y, 60);
@@ -698,15 +701,12 @@ export class GameScene extends Phaser.Scene {
       for (const tk of toKill) this.onEnemyKilled(tk);
       const dToPlayer = Phaser.Math.Distance.Between(e.x, e.y, this.player.x, this.player.y);
       if (dToPlayer < 60) {
-        const dead = this.player.takeDamage(20, this.time.now);
+        const dead = this.player.takeDamage(Math.round(20 * this.difficultyDmgMult), this.time.now);
         if (dead) { this.endGame(); return; }
       }
       this.effects.deathEffect(e.x, e.y);
       this.shakeScreen(150, 0.012);
     }
-
-    const xpGain = XP_PER_KILL[eType as keyof typeof XP_PER_KILL] || 5;
-    this.spawnXpDrop(e.x, e.y, xpGain);
 
     this.stats_kills++;
     this.stats_peakAlive = Math.max(this.stats_peakAlive, this.enemyMgr.count);
@@ -726,21 +726,14 @@ export class GameScene extends Phaser.Scene {
     if (idx !== -1) this.enemyMgr.list.splice(idx, 1);
   }
 
-  private spawnMaterialDrop(x: number, y: number, mult: number) {
-    const value = Phaser.Math.Between(1, 3) * mult;
+  private spawnDrop(x: number, y: number, mult: number, xpAmount: number) {
+    const value = Math.round(Phaser.Math.Between(1, 3) * mult);
     const drop = this.materialPool.get(x, y, "material") as Phaser.GameObjects.Image | null;
     if (!drop) return;
     drop.setDepth(10);
-    drop.setData("value", Math.round(value));
+    drop.setData("value", value);
+    drop.setData("xp", xpAmount);
     this.dropList.push(drop);
-  }
-
-  private spawnXpDrop(x: number, y: number, xpAmount: number) {
-    const orb = this.xpPool.get(x, y, "xp_orb") as Phaser.GameObjects.Image | null;
-    if (!orb) return;
-    orb.setDepth(10);
-    orb.setData("xp", xpAmount);
-    this.xpDropList.push(orb);
   }
 
   private autoShoot(time: number) {
@@ -802,17 +795,40 @@ export class GameScene extends Phaser.Scene {
   }
 
   private checkPickup() {
-    this.pullPickupList(this.dropList, "value", (m, val) => {
-      this.player.stats.materials += val;
-      this.stats_materialsEarned += val;
-    }, "#0f8", 12);
-  }
-
-  private checkXpPickup() {
-    this.pullPickupList(this.xpDropList, "xp", (orb, xpVal) => {
-      const leveled = this.player.awardXP(xpVal);
-      this.pendingLevelUps += leveled;
-    }, "#4f4", 10);
+    for (let i = this.dropList.length - 1; i >= 0; i--) {
+      const obj = this.dropList[i];
+      if (!obj.active) continue;
+      const d = Phaser.Math.Distance.Between(this.player.x, this.player.y, obj.x, obj.y);
+      const magnetRange = PICKUP_RANGE + this.player.stats.pickupRangeBonus + 100;
+      if (d < PICKUP_RANGE + this.player.stats.pickupRangeBonus) {
+        AudioManager.pickup();
+        const val = obj.getData("value") as number;
+        const xpVal = obj.getData("xp") as number;
+        if (this.debt > 0) {
+          const bonus = Math.min(this.debt, val);
+          this.player.stats.materials += val + bonus;
+          this.stats_materialsEarned += val + bonus;
+          this.debt -= bonus;
+        } else {
+          this.player.stats.materials += val;
+          this.stats_materialsEarned += val;
+        }
+        const leveled = this.player.awardXP(xpVal);
+        this.pendingLevelUps += leveled;
+        const text = this.add.text(obj.x, obj.y, `+${val}`, {
+          fontSize: "12px", color: "#0f8",
+        }).setOrigin(0.5).setDepth(50);
+        this.tweens.add({
+          targets: text, y: text.y - 25, alpha: 0, duration: 400,
+          onComplete: () => text.destroy(),
+        });
+        obj.setActive(false).setVisible(false);
+        this.dropList.splice(i, 1);
+      } else if (d < magnetRange) {
+        obj.x += (this.player.x - obj.x) * 0.08;
+        obj.y += (this.player.y - obj.y) * 0.08;
+      }
+    }
   }
 
   private pullPickupList(
@@ -854,14 +870,22 @@ export class GameScene extends Phaser.Scene {
     AudioManager.stopBGM();
     this.physics.pause();
 
+    const won = this.wave >= 30;
+    if (won) {
+      const nextDiff = this.difficultyLevel + 1;
+      if (nextDiff < DIFFICULTY_TIERS.length) {
+        MetaProgress.setUnlockedDifficulty(nextDiff);
+      }
+    }
+
     const newAchievements = Achievements.check({
       wave: this.wave, kills: this.stats_kills, bossKills: this.stats_bossKills,
       peakAlive: this.stats_peakAlive, materialsEarned: this.stats_materialsEarned,
-      charId: this.player.charId, won: this.wave >= 30,
+      charId: this.player.charId, won,
     });
     const newChars = MetaProgress.checkCharUnlocks({
       kills: this.stats_kills, materialsEarned: this.stats_materialsEarned,
-      wave: this.wave, won: this.wave >= 30,
+      wave: this.wave, won,
     });
     const allNew = [...newAchievements, ...newChars.map(id => {
       const r = MetaProgress.getCharUnlockRequirement(id);

@@ -3,7 +3,7 @@ import { W, H } from "../types";
 import { Achievements } from "../utils/Achievements";
 import { MetaProgress } from "../utils/MetaProgress";
 import { hasSeenTutorial, showTutorial } from "../ui/Tutorial";
-import { CHARACTERS } from "../config";
+import { CHARACTERS, DIFFICULTY_TIERS } from "../config";
 
 const COLORS = [0x44aaff, 0xff6644, 0x44ff88, 0xff44aa, 0xffaa00, 0xaa66ff, 0xff8866];
 const PASSIVE_LABELS: Record<string, string> = {
@@ -13,11 +13,13 @@ const PASSIVE_LABELS: Record<string, string> = {
 
 export class CharacterSelectScene extends Phaser.Scene {
   private selectedIdx = 0;
+  private difficultyIdx = 1;
   private endlessMode = false;
 
   private topContainer!: Phaser.GameObjects.Container;
   private previewContainer!: Phaser.GameObjects.Container;
   private btnContainer!: Phaser.GameObjects.Container;
+  private diffContainer!: Phaser.GameObjects.Container;
   private cardsContainer!: Phaser.GameObjects.Container;
   private achContainer!: Phaser.GameObjects.Container;
 
@@ -31,6 +33,7 @@ export class CharacterSelectScene extends Phaser.Scene {
     this.topContainer = this.add.container(0, 0);
     this.previewContainer = this.add.container(0, 0);
     this.btnContainer = this.add.container(0, 0);
+    this.diffContainer = this.add.container(0, 0);
     this.cardsContainer = this.add.container(0, 0);
     this.achContainer = this.add.container(0, 0);
 
@@ -41,6 +44,7 @@ export class CharacterSelectScene extends Phaser.Scene {
     this.renderTopBar();
     this.renderPreview();
     this.renderStartButton();
+    this.renderDifficulty();
     this.renderCards();
     this.renderAchievements();
   }
@@ -307,10 +311,10 @@ export class CharacterSelectScene extends Phaser.Scene {
       zone.on("pointerdown", () => {
         if (!MetaProgress.isCharUnlocked(char.id)) return;
         if (hasSeenTutorial()) {
-          this.scene.start("GameScene", { character: char, endlessMode: this.endlessMode });
+          this.scene.start("GameScene", { character: char, endlessMode: this.endlessMode, difficulty: this.difficultyIdx });
         } else {
           showTutorial(this, () => {
-            this.scene.start("GameScene", { character: char, endlessMode: this.endlessMode });
+            this.scene.start("GameScene", { character: char, endlessMode: this.endlessMode, difficulty: this.difficultyIdx });
           });
         }
       });
@@ -318,6 +322,62 @@ export class CharacterSelectScene extends Phaser.Scene {
     }
 
     this.btnContainer.add(children);
+  }
+
+  private renderDifficulty() {
+    this.destroyContainer(this.diffContainer);
+    const children: Phaser.GameObjects.GameObject[] = [];
+    const unlockedMax = MetaProgress.unlockedDifficulty;
+    const startX = 60;
+    const y = 510;
+    const btnW = 110;
+    const gap = 8;
+
+    const label = this.add.text(W / 2, y - 14, "难度选择", {
+      fontSize: "14px", color: "#888", fontStyle: "bold",
+    }).setOrigin(0.5);
+    children.push(label);
+
+    DIFFICULTY_TIERS.forEach((t, i) => {
+      const cx = startX + i * (btnW + gap) + btnW / 2;
+      const unlocked = i <= unlockedMax;
+      const selected = i === this.difficultyIdx;
+      const alpha = unlocked ? 1 : 0.35;
+
+      const cardG = this.add.graphics();
+      if (selected && unlocked) {
+        cardG.fillStyle(0x883333, 0.9);
+        cardG.fillRoundedRect(cx - btnW / 2, y + 4, btnW, 28, 6);
+        cardG.lineStyle(2, 0xffcc00, 1);
+      } else if (unlocked) {
+        cardG.fillStyle(0x222244, 0.7);
+        cardG.fillRoundedRect(cx - btnW / 2, y + 4, btnW, 28, 6);
+        cardG.lineStyle(1, 0x444488, 0.5);
+      } else {
+        cardG.fillStyle(0x111122, 0.5);
+        cardG.fillRoundedRect(cx - btnW / 2, y + 4, btnW, 28, 6);
+        cardG.lineStyle(1, 0x333333, 0.3);
+      }
+      cardG.strokeRoundedRect(cx - btnW / 2, y + 4, btnW, 28, 6);
+      children.push(cardG);
+
+      const textColor = selected && unlocked ? "#ffcc00" : (unlocked ? "#aaa" : "#555");
+      children.push(this.add.text(cx, y + 18, unlocked ? t.name : "🔒", {
+        fontSize: "12px", color: textColor, fontStyle: "bold",
+      }).setOrigin(0.5));
+
+      if (unlocked) {
+        const zone = this.add.zone(cx, y + 18, btnW, 28).setInteractive({ useHandCursor: true });
+        zone.on("pointerdown", () => {
+          if (this.difficultyIdx === i) return;
+          this.difficultyIdx = i;
+          this.renderDifficulty();
+        });
+        children.push(zone);
+      }
+    });
+
+    this.diffContainer.add(children);
   }
 
   private renderCards() {

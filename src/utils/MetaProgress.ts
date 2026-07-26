@@ -7,6 +7,7 @@ interface MetaState {
   genePoints: number;
   upgrades: Record<string, number>;
   unlockedChars: string[];
+  unlockedDifficulty: number;
 }
 
 export interface MetaUpgradeDef {
@@ -43,6 +44,7 @@ function defaultState(): MetaState {
     genePoints: 0,
     upgrades: {},
     unlockedChars: ["merc", "spec", "fireman"],
+    unlockedDifficulty: 1,
   };
 }
 
@@ -117,6 +119,17 @@ export class MetaProgress {
   static get dmgMult(): number {
     const level = MetaProgress.getUpgradeLevel("dmg");
     return 1 + level * 0.05;
+  }
+
+  static get unlockedDifficulty(): number {
+    return MetaProgress.state.unlockedDifficulty;
+  }
+
+  static setUnlockedDifficulty(n: number) {
+    if (n > MetaProgress.state.unlockedDifficulty) {
+      MetaProgress.state.unlockedDifficulty = n;
+      save(MetaProgress.state);
+    }
   }
 
   static getCharUnlockRequirement(id: string): { name: string; desc: string } | null {

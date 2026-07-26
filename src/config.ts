@@ -25,14 +25,31 @@ export const WEAPON_CONFIGS: WeaponConfig[] = [
 ];
 
 export const ITEMS: ShopItem[] = [
-  { id: "coffee", name: "咖啡", desc: "所有武器射速 +10%", cost: 15, type: "item", apply: (s, w) => { w.forEach(we => we.fireRate = Math.round(we.fireRate * 0.9)); } },
-  { id: "medkit", name: "医疗包", desc: "每波回复 20HP", cost: 12, type: "item", apply: (s) => { s.hp = Math.min(s.maxHp, s.hp + 20); } },
-  { id: "shoes", name: "跑鞋", desc: "移动速度 +20", cost: 10, type: "item", apply: (s) => { s.speed += 20; } },
-  { id: "shield", name: "铁盾", desc: "护甲 +2", cost: 18, type: "item", apply: (s) => { s.armor += 2; } },
-  { id: "clover", name: "幸运草", desc: "经验获取 +15%", cost: 14, type: "item", apply: (s) => { s.xpMult = 1.15; } },
-  { id: "foldingStock", name: "折叠枪托", desc: "移速 +15", cost: 10, type: "item", apply: (s) => { s.speed += 15; } },
-  { id: "energyCell", name: "能量电池", desc: "激光枪弹容量 +50%", cost: 16, type: "item", apply: (s, w) => { w.forEach(we => { if (we.id === "laser" || we.id === "evolved_laser") we.ammoMax = Math.round(we.ammoMax * 1.5); }); } },
-  { id: "coolant", name: "冷却液", desc: "冰冻枪射速 +20%", cost: 14, type: "item", apply: (s, w) => { w.forEach(we => { if (we.id === "freeze" || we.id === "evolved_freeze") we.fireRate = Math.round(we.fireRate * 0.8); }); } },
+  { id: "coffee", name: "咖啡", desc: "射速+10%  伤害-8%", cost: 15, type: "item", apply: (s, w) => { w.forEach(we => { we.fireRate = Math.round(we.fireRate * 0.9); we.damage = Math.round(we.damage * 0.92); }); } },
+  { id: "medkit", name: "医疗包", desc: "回复40HP  最大HP-10", cost: 12, type: "item", apply: (s) => { s.maxHp = Math.max(20, s.maxHp - 10); s.hp = Math.min(s.maxHp, s.hp + 40); } },
+  { id: "shoes", name: "跑鞋", desc: "移速+20  护甲-1", cost: 10, type: "item", apply: (s) => { s.speed += 20; s.armor = Math.max(0, s.armor - 1); } },
+  { id: "shield", name: "铁盾", desc: "护甲+2  移速-10", cost: 18, type: "item", apply: (s) => { s.armor += 2; s.speed = Math.max(20, s.speed - 10); } },
+  { id: "clover", name: "幸运草", desc: "经验+15%  伤害-5%", cost: 14, type: "item", apply: (s, w) => { s.xpMult = 1.15; w.forEach(we => we.damage = Math.round(we.damage * 0.95)); } },
+  { id: "foldingStock", name: "折叠枪托", desc: "移速+15  射速-5%", cost: 10, type: "item", apply: (s, w) => { s.speed += 15; w.forEach(we => we.fireRate = Math.round(we.fireRate * 1.05)); } },
+  { id: "energyCell", name: "能量电池", desc: "激光弹容量+50%  激光伤害-15%", cost: 16, type: "item", apply: (s, w) => { w.forEach(we => { if (we.id === "laser" || we.id === "evolved_laser") { we.ammoMax = Math.round(we.ammoMax * 1.5); we.damage = Math.round(we.damage * 0.85); } }); } },
+  { id: "coolant", name: "冷却液", desc: "冰冻射速+20%  冰冻伤害-15%", cost: 14, type: "item", apply: (s, w) => { w.forEach(we => { if (we.id === "freeze" || we.id === "evolved_freeze") { we.fireRate = Math.round(we.fireRate * 0.8); we.damage = Math.round(we.damage * 0.85); } }); } },
+];
+
+export interface DifficultyTier {
+  id: number;
+  name: string;
+  hpMult: number;
+  speedMult: number;
+  dmgMult: number;
+}
+
+export const DIFFICULTY_TIERS: DifficultyTier[] = [
+  { id: 0, name: "危险0", hpMult: 0.8, speedMult: 0.8, dmgMult: 0.8 },
+  { id: 1, name: "危险1", hpMult: 1.0, speedMult: 1.0, dmgMult: 1.0 },
+  { id: 2, name: "危险2", hpMult: 1.2, speedMult: 1.15, dmgMult: 1.15 },
+  { id: 3, name: "危险3", hpMult: 1.5, speedMult: 1.3, dmgMult: 1.3 },
+  { id: 4, name: "危险4", hpMult: 1.8, speedMult: 1.5, dmgMult: 1.5 },
+  { id: 5, name: "危险5", hpMult: 2.2, speedMult: 1.7, dmgMult: 1.7 },
 ];
 
 export const CONSUMABLES: ShopItem[] = [

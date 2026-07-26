@@ -225,7 +225,6 @@ export class Player {
       existing.level++;
       existing.damage = Math.round(existing.damage * 1.15);
       existing.fireRate = Math.round(existing.fireRate * 0.92);
-      if (existing.bulletCount < 5 && existing.level % 2 === 0 && existing.weaponType !== "melee") existing.bulletCount++;
       return;
     }
     if (this.weapons.length >= MAX_WEAPONS) return;
