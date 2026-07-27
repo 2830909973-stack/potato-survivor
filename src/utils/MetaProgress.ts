@@ -33,6 +33,7 @@ export const CHAR_UNLOCK_REQUIREMENTS: Record<string, { name: string; desc: stri
   lucky: { name: "幸运儿", desc: "单局获得 200 材料" },
   tank: { name: "重装兵", desc: "通关第 10 波" },
   berserker: { name: "疯子", desc: "通关第 20 波" },
+  swordmaster: { name: "剑仙", desc: "通关第 15 波" },
 };
 
 function costFor(upgrade: MetaUpgradeDef, level: number): number {
@@ -99,7 +100,7 @@ export class MetaProgress {
   }
 
   static isCharUnlocked(id: string): boolean {
-    return MetaProgress.state.unlockedChars.includes(id);
+    return true;
   }
 
   static unlockChar(id: string): boolean {
@@ -149,6 +150,9 @@ export class MetaProgress {
     }
     if (!MetaProgress.isCharUnlocked("berserker") && ctx.wave >= 20) {
       MetaProgress.unlockChar("berserker"); newly.push("berserker");
+    }
+    if (!MetaProgress.isCharUnlocked("swordmaster") && ctx.wave >= 15) {
+      MetaProgress.unlockChar("swordmaster"); newly.push("swordmaster");
     }
     return newly;
   }
